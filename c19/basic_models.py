@@ -46,10 +46,13 @@ def seir_deriv(y, t, beta, gamma, sigma):
 def mitigation_function(t, ts = [(0, 400)], ms=[1]):
     """Defines a mitigation function as follows:
     1) the time of the infection, t, is divided in tranches specified by ts. Thus, for example,
-    ts =[(0,20), (20,60), (60,100)] would divide a time vector of 100 days in 3 tranches, the first one
+    ts =[(0,20), (20,60), (60,100)] would divide a time vector of 100 days in 3 tranches,
+    the first one
     from day 0 to day 20 and so on.
-    2) ms corresponds to the mitigation factor in each tranch. Thus, [(1, 0.5, 0.8)] in the example would
-    mean that the first tranch no mitigation is applied (R0 * 1), and for second and third tranches the
+    2) ms corresponds to the mitigation factor in each tranch. Thus, [(1, 0.5, 0.8)] in the
+    example would
+    mean that the first tranch no mitigation is applied (R0 * 1), and for second and third
+    tranches the
     mitigation would be (R0 * 0.5) and (R0 * 0.8)
     """
     def mitigation(t, ts, ms):
