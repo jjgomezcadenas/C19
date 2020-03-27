@@ -65,7 +65,7 @@ def set_fonts(ax, fontsize=20):
 
 def h1(x      : np.array,
        bins    : int,
-       range   : Tuple[float],
+       range   : Tuple[float] = None,
        weights : Array = None,
        log     : bool  = False,
        normed  : bool  = False,
@@ -78,6 +78,8 @@ def h1(x      : np.array,
     histogram 1d with continuous steps and display of statsself.
     number of bins (bins) and range are compulsory.
     """
+
+    range = range if range is not None else (np.min(x), np.max(x))
 
     mu, std = mean_and_std(x, range)
 
@@ -138,7 +140,7 @@ def plot_histo(pltLabels: PlotLabels, ax, fontsize, legend= True,
 
 def h1d(x         : np.array,
         bins      : int,
-        range     : Tuple[float],
+        range     : Tuple[float] = None,
         weights   : Array               = None,
         log       : bool                = False,
         normed    : bool                = False,
@@ -147,7 +149,7 @@ def h1d(x         : np.array,
         style     : str                 ='solid',
         stats     : bool                = True,
         lbl       : Str                 = None,
-        pltLabels : PlotLabels          =PlotLabels(x='x', y='y', title=None),
+        pltLabels : PlotLabels          = PlotLabels(x='x', y='y', title=None),
         legendloc : str                 ='best',
         figsize   : Tuple[float, float] =(6,6),
         fontsize  : float               = 20):
