@@ -25,8 +25,9 @@ def mean_and_std(x : np.array, range_ : Tuple[Number, Number])->Tuple[Number, Nu
         std = np.nanstd(x)
     else:
         x = np.array(x)
+        sel = (x >= range_[0]) & ( x <= range_[1])
         if len(x) > 0:
-            y = x[in_range(x, *range_)]
+            y = x[sel]
             if len(y) == 0:
                 print(f'warning, empty slice of x = {x} in range = {range_}')
                 print(f'returning mean and std of x = {x}')
