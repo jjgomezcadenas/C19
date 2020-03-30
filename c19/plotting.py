@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
+from . c19stats import lognorm_pdf, hdt
 
 def plot_sir(sir, T, figsize=(10,10), facecolor='LightGrey'):
     """Plot the data on three separate curves for S(t), I(t) and R(t)"""
@@ -120,3 +122,82 @@ def plot_Is(sirs, Ls, T, figsize=(10,10), ylim=0.35, facecolor='LightGrey'):
         ax.spines[spine].set_visible(False)
     plt.title(T)
     plt.show()
+
+
+def plot_lognorm_pdf(mu, sigmas, figsize=(8,8)):
+
+    fig = plt.figure(figsize=figsize)
+    ax=plt.subplot(111)
+    x=np.linspace(0,5,200)
+    for sigma in sigmas:
+        y = lognorm_pdf(x, mu, sigma)
+        ax.plot(x, y, lw=3, alpha=0.6, label=f' sigma = {sigma}')
+    plt.title(f'lognorm, mu={mu}')
+    plt.legend()
+    plt.show()
+
+
+def plot_hospitalisation_to_dth(zmeanHDT = 13, zmedianHDT = 9.1, figsize=(8,8)):
+
+    fig = plt.figure(figsize=figsize)
+    ax=plt.subplot(111)
+    x=np.linspace(0,40,200)
+    y = hdt(x, zmeanHDT, zmedianHDT)
+    ax.plot(x, y, lw=3, alpha=0.6)
+    plt.title(f' hospitalization to dth, mean={np.argmax(y)/5:.2f}')
+    plt.show()
+
+
+def plot_cases_and_deaths(df, country= 'Spain', figsize=(12,12), log=False):
+    def formatter(ax):
+        locator = mdates.AutoDateLocator(minticks=3, maxticks=7)
+        formatter = mdates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(formatter)
+
+    def cum_sum(df, data):
+        Y = np.flip(df[data].values)
+        CY = np.cumsum(Y)
+        FCY = np.flip(CY)
+        return FCY
+
+    def formats(ax, xlabel, ylabel):
+        formatter(ax)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        if log:
+            plt.yscale('log')
+
+        plt.grid()
+
+
+    fig = plt.figure(figsize=figsize)
+    st = fig.suptitle(country, fontsize="x-large")
+
+    X = df['dateRep'].values
+    Y = df['cases'].values
+    ax      = fig.add_subplot(2, 2, 1)
+    plt.plot(X, Y, 'bo')
+    formats(ax,'Date','Number of cases')
+
+
+    ax      = fig.add_subplot(2, 2, 2)
+    plt.plot(X, cum_sum(df, 'cases'), 'bo')
+    formats(ax,'Date','Cumulative number of cases')
+
+    Y = df['deaths']
+    ax      = fig.add_subplot(2, 2, 3)
+    plt.plot(X, Y, 'bo')
+    formats(ax,'Date','Number of deaths')
+
+    ax      = fig.add_subplot(2, 2, 4)
+    plt.plot(X, cum_sum(df, 'deaths'), 'bo')
+    formats(ax,'Date','Cumulative number of deaths')
+
+    st.set_y(0.95)
+    fig.subplots_adjust(top=0.90)
+
+    #plt.tight_layout()
+    plt.show()
+    print(f' Total cases   confirmed ={df.cases.sum()}')
+    print(f' Total deaths  confirmed ={df.deaths.sum()}')

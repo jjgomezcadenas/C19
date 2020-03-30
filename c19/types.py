@@ -59,6 +59,12 @@ def draw_level(drawLevel, level):
     else:
         return False
 
+@dataclass
+class Country:
+    """Conutry data"""
+    name     : str
+    code     : str
+
 
 @dataclass
 class SIR:

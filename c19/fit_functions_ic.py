@@ -130,6 +130,7 @@ def fit(func, x, y, seed=(), fit_range=None, **kwargs):
     >>> print(f.values)
     [ 1.77245385  1.          0.70710678]
     """
+
     if fit_range is not None:
         sel  = coref.in_range(x, *fit_range)
         x, y = x[sel], y[sel]

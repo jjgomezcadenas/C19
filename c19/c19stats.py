@@ -9,6 +9,7 @@ from scipy.stats import nbinom
 from scipy.stats import weibull_min
 from scipy.stats import norm
 from scipy.stats import skewnorm
+from scipy.stats import lognorm
 
 
 def c19_nbinom_transform(r0, k):
@@ -61,3 +62,44 @@ def sknormal_rvs(mu, sigma, a, size=0):
         return skewnorm.rvs(a, loc=mu, scale=sigma)
     else:
         return skewnorm.rvs(a, loc=mu, scale=sigma, size=size)
+
+
+def lognorm_pdf(x, mu, sigma):
+    """lognorm distribution"""
+    return lognorm.pdf(x, sigma, scale=np.exp(mu))
+
+
+def hdt(x, zmeanHDT = 13, zmedianHDT = 9.1):
+    """Hospitalization to death truncated"""
+
+    muHDT    = np.log(zmedianHDT)
+    sigmaHDT = np.sqrt(2*(np.log(zmeanHDT) - muHDT))
+    return lognorm.pdf(x, sigmaHDT, scale=zmedianHDT)
+
+
+def cCFR(df):
+    """Computes the confirmed Case Fatality Rate"""
+    def scale_cfr(df):
+        """Computes mut, scaling the CFR"""
+        case_incidence  = df['cases'].values
+        cumulative_known_t = 0  # cumulative cases with known outcome at time tt
+        # Sum over cases up to time t
+        for i in np.arange(len(case_incidence)):
+            known_i = 0 # number of cases with known outcome at time i
+            for j in np.arange(i):
+                known_j =  case_incidence[i - j]*hdt(j)
+                known_i += known_j
+            cumulative_known_t += known_i
+
+        return cumulative_known_t
+
+    bt = df['deaths'].sum() / df['cases'].sum()  #naive CFR
+    pt = df['deaths'].sum() / scale_cfr(df) #cCFR
+    return bt, pt
+
+
+def total_cases(df, cCFRBaseline = 1.38):
+    bt, pt = cCFR(df)
+    underreporting_estimate = cCFRBaseline / (pt*100)
+    total_cases = df.cases.sum() / underreporting_estimate
+    return underreporting_estimate, total_cases
