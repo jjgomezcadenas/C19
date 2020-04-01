@@ -7,11 +7,12 @@ import os
 import urllib
 
 # C19 data files.
-url_c19_files   = "https://raw.githubusercontent.com/datadista/datasets/master/COVID%2019"
-c19_file_cases  = "ccaa_covid19_casos.csv"
-c19_file_deaths = "ccaa_covid19_fallecidos.csv"
-c19_file_uci    = "ccaa_covid19_uci.csv"
-c19_file_hosp   = "ccaa_covid19_hospitalizados.csv"
+url_c19_files      = "https://raw.githubusercontent.com/datadista/datasets/master/COVID%2019"
+c19_file_cases     = "ccaa_covid19_casos.csv"
+c19_file_deaths    = "ccaa_covid19_fallecidos.csv"
+c19_file_uci       = "ccaa_covid19_uci.csv"
+c19_file_hosp      = "ccaa_covid19_hospitalizados.csv"
+c19_file_recovered = "ccaa_covid19_altas.csv"
 
 # Define the dictionary associating a weather sensor to each region.
 sensor_dict = {
@@ -152,28 +153,32 @@ def get_data_communities(api_key, datapath="../data/data_communities.csv", updat
     urllib.request.urlretrieve ("{}/{}".format(url_c19_files,c19_file_deaths), c19_file_deaths)
     urllib.request.urlretrieve ("{}/{}".format(url_c19_files,c19_file_uci), c19_file_uci)
     urllib.request.urlretrieve ("{}/{}".format(url_c19_files,c19_file_hosp), c19_file_hosp)
-    if(not (os.path.isfile(c19_file_cases) and os.path.isfile(c19_file_deaths) and os.path.isfile(c19_file_uci) and os.path.isfile(c19_file_hosp))):
+    urllib.request.urlretrieve ("{}/{}".format(url_c19_files,c19_file_recovered), c19_file_recovered)
+    if(not (os.path.isfile(c19_file_cases) and os.path.isfile(c19_file_deaths) and os.path.isfile(c19_file_uci) and os.path.isfile(c19_file_hosp) and os.path.isfile(c19_file_recovered))):
         print("ERROR downloading C19 data.")
         return None
     print("-- Done")
 
     # Read in the C19 data.
-    cases  = pd.read_csv(c19_file_cases);  os.remove(c19_file_cases)
-    ucases = pd.read_csv(c19_file_deaths); os.remove(c19_file_deaths)
-    fcases = pd.read_csv(c19_file_uci);    os.remove(c19_file_uci)
-    hcases = pd.read_csv(c19_file_hosp);   os.remove(c19_file_hosp)
+    cases  = pd.read_csv(c19_file_cases);     os.remove(c19_file_cases)
+    ucases = pd.read_csv(c19_file_deaths);    os.remove(c19_file_deaths)
+    fcases = pd.read_csv(c19_file_uci);       os.remove(c19_file_uci)
+    hcases = pd.read_csv(c19_file_hosp);      os.remove(c19_file_hosp)
+    rcases = pd.read_csv(c19_file_recovered); os.remove(c19_file_recovered)
 
     # Remove all accents from the region names.
     cases['CCAA']  = cases['CCAA'].str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
     ucases['CCAA'] = ucases['CCAA'].str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
     fcases['CCAA'] = fcases['CCAA'].str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
     hcases['CCAA'] = hcases['CCAA'].str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
+    rcases['CCAA'] = rcases['CCAA'].str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
 
     # Set the region name as index.
     cases  = cases.set_index('CCAA')
     ucases = ucases.set_index('CCAA')
     fcases = fcases.set_index('CCAA')
     hcases = hcases.set_index('CCAA')
+    rcases = rcases.set_index('CCAA')
 
     # Add the C19 data to the meteo dataframes.
     df_regions = {}
@@ -189,18 +194,22 @@ def get_data_communities(api_key, datapath="../data/data_communities.csv", updat
                                'fecha'         : fcases.loc[region].keys()[1:].values})
         hframe = pd.DataFrame({'hospitalizados': hcases.loc[region][1:].values,
                                'fecha'         : hcases.loc[region].keys()[1:].values})
+        rframe = pd.DataFrame({'altas'         : rcases.loc[region][1:].values,
+                               'fecha'         : rcases.loc[region].keys()[1:].values})
 
         # Change the dates to datetime objects.
         cframe['fecha'] = pd.to_datetime(cframe['fecha'], format="%Y-%m-%d")
         uframe['fecha'] = pd.to_datetime(uframe['fecha'], format="%Y-%m-%d")
         fframe['fecha'] = pd.to_datetime(fframe['fecha'], format="%Y-%m-%d")
         hframe['fecha'] = pd.to_datetime(hframe['fecha'], format="%Y-%m-%d")
+        rframe['fecha'] = pd.to_datetime(rframe['fecha'], format="%Y-%m-%d")
 
         # Merge the dataframes.
         mdf = pd.merge(df,  cframe, on = 'fecha', how='outer')
         mdf = pd.merge(mdf, uframe, on = 'fecha', how='outer')
         mdf = pd.merge(mdf, fframe, on = 'fecha', how='outer')
         mdf = pd.merge(mdf, hframe, on = 'fecha', how='outer')
+        mdf = pd.merge(mdf, rframe, on = 'fecha', how='outer')
         df_regions[region] = mdf
     print("-- Done")
 
@@ -225,7 +234,7 @@ def get_data_communities(api_key, datapath="../data/data_communities.csv", updat
     cdf = cdf.reset_index()
 
     # Change column names.
-    cdf = cdf.rename(columns={"fecha": "dateRep", "ncases": "cases", "fallecidos": "deaths", "hospitalizados": "hospitalized"})
+    cdf = cdf.rename(columns={"fecha": "dateRep", "ncases": "cases", "fallecidos": "deaths", "hospitalizados": "hospitalized", "altas": "recovered"})
 
     # Add columns for day, month, and year.
     cdf['day']   = cdf.apply(lambda row: row['dateRep'].date().day, axis=1)
