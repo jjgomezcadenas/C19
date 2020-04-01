@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 from . c19stats import lognorm_pdf, hdt
+from . data_functions import misc_dict
+from . io import ecdc_select_country
 
 def plot_sir(sir, T, figsize=(10,10), facecolor='LightGrey'):
     """Plot the data on three separate curves for S(t), I(t) and R(t)"""
@@ -148,7 +150,7 @@ def plot_hospitalisation_to_dth(zmeanHDT = 13, zmedianHDT = 9.1, figsize=(8,8)):
     plt.show()
 
 
-def plot_cases_and_deaths(df, country= 'Spain', figsize=(12,12), log=False):
+def plot_cases_and_deaths(df, country= 'Spain', figsize=(12,12), log=False, reverse=True):
     def formatter(ax):
         locator = mdates.AutoDateLocator(minticks=3, maxticks=7)
         formatter = mdates.ConciseDateFormatter(locator)
@@ -156,9 +158,12 @@ def plot_cases_and_deaths(df, country= 'Spain', figsize=(12,12), log=False):
         ax.xaxis.set_major_formatter(formatter)
 
     def cum_sum(df, data):
-        Y = np.flip(df[data].values)
-        CY = np.cumsum(Y)
-        FCY = np.flip(CY)
+        if reverse:
+            Y = np.flip(df[data].values)
+            CY = np.cumsum(Y)
+            FCY = np.flip(CY)
+        else:
+            FCY = np.cumsum(df[data].values)
         return FCY
 
     def formats(ax, xlabel, ylabel):
@@ -201,3 +206,75 @@ def plot_cases_and_deaths(df, country= 'Spain', figsize=(12,12), log=False):
     plt.show()
     print(f' Total cases   confirmed ={df.cases.sum()}')
     print(f' Total deaths  confirmed ={df.deaths.sum()}')
+
+
+def plot_data_ccaa(dfca, dataType= 'cases', thr = 2, figsize=(12,12), log=False, reverse=False):
+    def formatter(ax):
+        locator = mdates.AutoDateLocator(minticks=3, maxticks=7)
+        formatter = mdates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(formatter)
+
+    def formats(ax, xlabel, ylabel):
+        formatter(ax)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        if log:
+            plt.yscale('log')
+
+        plt.grid()
+
+
+    fig = plt.figure(figsize=figsize)
+    for i, key in enumerate(misc_dict.keys()):
+        cdict = misc_dict[key]
+        code = cdict["geoId"]
+        print(i, key, code)
+        df = ecdc_select_country(dfca, country=code, thr=thr)
+        ax      = fig.add_subplot(5, 4, i+1)
+
+        X = df['dateRep'].values
+        Y = df[dataType].values
+
+        plt.plot(X, Y, 'bo', label=key)
+        formats(ax,'Date', dataType)
+
+        plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_cumulative_data_ccaa(dfca, dataType= 'cases', thr = 2, figsize=(12,12), log=False):
+    def formatter(ax):
+        locator = mdates.AutoDateLocator(minticks=3, maxticks=7)
+        formatter = mdates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(formatter)
+
+    def formats(ax, xlabel, ylabel):
+        formatter(ax)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        if log:
+            plt.yscale('log')
+
+        plt.grid()
+
+
+    fig = plt.figure(figsize=figsize)
+    for i, key in enumerate(misc_dict.keys()):
+        cdict = misc_dict[key]
+        code = cdict["geoId"]
+        print(i, key, code)
+        df = ecdc_select_country(dfca, country=code, thr=thr)
+        ax      = fig.add_subplot(5, 4, i+1)
+
+        X = df['dateRep'].values
+        Y = np.cumsum(df[dataType].values)
+
+        plt.plot(X, Y, 'bo', label=key)
+        formats(ax,'Date', dataType)
+
+        plt.legend()
+    plt.tight_layout()
+    plt.show()
