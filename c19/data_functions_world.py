@@ -64,7 +64,6 @@ def get_data_world(datapath="../data/data_world.csv", latlongpath="../data/world
     print("Obtaining climate data from",date_init,"to",date_final,"...")
 
     cdf = None
-    dbg = 0
     countries_latlong = set(df_latlong.country.values)
     countries = set([(ccode,cname) for ccode,cname in zip(df_world.geoId.values,df_world.countriesAndTerritories.values)])
     icountry = 0
@@ -80,9 +79,6 @@ def get_data_world(datapath="../data/data_world.csv", latlongpath="../data/world
         else:
             print("* Skipping country code",ccode,": not in latitude/longitude dataframe")
             continue
-
-        if(dbg > 2): break
-        dbg += 1
 
         request_str = "https://power.larc.nasa.gov/cgi-bin/v1/DataAccess.py?&request=execute&identifier=SinglePoint&parameters=PRECTOT,QV2M,RH2M,T2M_MAX,T2M_MIN,T2M,ALLSKY_SFC_SW_DWN,ALLSKY_SFC_LW_DWN&startDate={}&endDate={}&userCommunity=SSE&tempAverage=DAILY&outputList=JSON&lat={}&lon={}".format(date_init,date_final,lat,long)
         response = urllib.request.urlopen(request_str)
