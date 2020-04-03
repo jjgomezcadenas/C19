@@ -95,8 +95,13 @@ def get_data_world(datapath="../data/data_world.csv", latlongpath="../data/world
         # Convert date to datetime objects.
         df['dateRep'] = pd.to_datetime(df['dateRep'], format="%Y%m%d")
 
+        # Add the latitude and longitude.
+        df_country = df_world[df_world.geoId == ccode]
+        df_country['latitude']  = lat
+        df_country['longitude'] = long
+
         # Merge with the same country code in the world dataframe (merging "left" drops entries with no C19 data).
-        df_merge = pd.merge(df_world[df_world.geoId == ccode], df, on = 'dateRep', how='left')
+        df_merge = pd.merge(df_country, df, on = 'dateRep', how='left')
 
         # Append to the final combined dataframe.
         if(cdf is None):
