@@ -9,13 +9,13 @@ from scipy.integrate import odeint
 import scipy.integrate as spi
 from scipy.interpolate import interp1d
 
-from . types import SEIR, SEIR2
+from . types import SIR, SEIR, SEIR2
 
-def sir_deriv(y, t, N, beta, gamma):
+def sir_deriv(y, t, M, beta, gamma):
     """Prepares the SIR system of equations"""
     S, I, R = y
-    dSdt = -beta * S * I / N
-    dIdt = beta * S * I / N - gamma * I
+    dSdt = -beta * M(t) * S * I
+    dIdt = beta * M(t) * S * I - gamma * I
     dRdt = gamma * I
     return dSdt, dIdt, dRdt
 
@@ -29,6 +29,20 @@ def set_sir_initial_conditions(N, i0=1, r0=0):
     s0 = N - i0 - r0
     y0 = s0, i0, r0
     return y0
+
+
+def compute_sir(N, Y0, R0, Gamma, t_range, ts = [(0, 400)], ms=[1.0]):
+    """Full SIR run"""
+
+    Beta      = Gamma * R0
+    M = mitigation_function(t_range, ts, ms)
+    ret = odeint(sir_deriv, Y0, t_range, args=(M, Beta, Gamma))
+    S, I, R = ret.T
+
+    sir = SIR(N = N, S=S, I=I,  R=R,
+              beta=Beta, R0=R0, gamma=Gamma,  t= t_range)
+
+    return sir
 
 
 def seir_deriv(y, t, beta, gamma, sigma):
@@ -83,7 +97,7 @@ def seir_deriv_time(y, t, M, beta, gamma, sigma):
     return dSdt, dEdt, dIdt
 
 
-def compute_seir(N, Y0, R0, Gamma, Sigma, t_range, ts = [(0, 400)], ms=[0.8]):
+def compute_seir(N, Y0, R0, Gamma, Sigma, t_range, ts = [(0, 400)], ms=[1.0]):
     """Full SEIR run"""
 
     Beta      = Gamma * R0
