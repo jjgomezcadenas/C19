@@ -105,25 +105,36 @@ def plot_ICAA(dca, uci_beds, t, IC, figsize=(10,10), facecolor='LightGrey'):
     plt.show()
 
 
-def plot_seir(sir, T, figsize=(10,10), facecolor='LightGrey'):
-    """Plot the data on three separate curves for S(t),E(t), I(t) and R(t)"""
+def plot_seir(sir, T, tmin = 0, tmax = 200, absolute=True, figsize=(10,10), facecolor='LightGrey'):
+    """Plot the data on four separate curves for S(t), E(t), I(t) and R(t)"""
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, axisbelow=True)
     ax.set_facecolor(facecolor)
-    ax.plot(sir.t, sir.S, 'k', alpha=0.5, lw=3, label='Susceptibles')
-    ax.plot(sir.t, sir.E, 'b', alpha=0.5, lw=3, label='Expuestos')
-    ax.plot(sir.t, sir.I, 'r', alpha=0.5, lw=3, label='Infectados')
-    ax.plot(sir.t, sir.R, 'g', alpha=0.5, lw=3, label='Recuperados')
-    ax.set_xlabel('Tiempo (días)')
-    ax.set_ylabel('Fracción de la población')
-    ax.set_ylim(0,1.2)
-    ax.yaxis.set_tick_params(length=0)
-    ax.xaxis.set_tick_params(length=0)
-    ax.grid(b=True, which='major', c='w', lw=2, ls='-')
-    legend = ax.legend()
-    legend.get_frame().set_alpha(0.5)
-    for spine in ('top', 'right', 'bottom', 'left'):
-        ax.spines[spine].set_visible(False)
+
+    if absolute:
+        S = sir.S * sir.N
+        E = sir.E * sir.N
+        I = sir.I * sir.N
+        R = sir.R * sir.N
+        Y = 1.1 * sir.N
+    else:
+        S = sir.S
+        E = sir.E
+        I = sir.I
+        R = sir.R
+        Y = 1.1
+
+    ax.plot(sir.t, S, 'k', alpha=0.5, lw=3, label='Susceptible')
+    ax.plot(sir.t, I, 'b', alpha=0.5, lw=3, label='Infected')
+    ax.plot(sir.t, E, 'r', alpha=0.5, lw=3, label='Exposed')
+    ax.plot(sir.t, R, 'g', alpha=0.5, lw=3, label='Recovered')
+    xlabel = 'Time /days'
+    if absolute:
+        ylabel = 'Total population'
+    else:
+        ylabel = 'Fraction of population'
+
+    set_pretty_ax(ax, facecolor, xlabel, ylabel, tmin, tmax, Y)
     plt.title(T)
     plt.show()
 
