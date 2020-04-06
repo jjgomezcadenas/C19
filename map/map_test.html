@@ -1,0 +1,171 @@
+<!--
+    Adapted from http://bl.ocks.org/wiesson/ef18dba71256d526eb42
+ -->
+
+<!DOCTYPE html>
+<head>
+    <meta charset="utf-8">
+    <meta name="description" content="">
+    <title>Map of Spain</title>
+</head>
+<style>
+    svg {
+        margin-left: auto;
+        margin-right: auto;
+        display: block;
+    }
+    .graticule {
+            fill: none;
+            stroke: #777;
+            stroke-width: .5px;
+            stroke-opacity: .5;
+    }
+    .border {
+        fill: none;
+        stroke: #111;
+        stroke-width: 1px;
+    }
+    .regions.selected {
+        fill: #999;
+        stroke: none;
+        transition: all 0.2s ease;
+    }
+    .regions.selected:hover {
+        fill: #111;
+        stroke: #111;
+        stroke-width: 1px;
+    }
+    .legend {
+        height: 10px;
+        color: #111;
+        text-align: center;
+    }
+</style>
+<body>
+
+<div class="legend"></div>
+<div class="view" id="map"></div>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://d3js.org/topojson.v2.min.js"></script>
+
+<script>
+    var width = 800,
+        height = 600;
+    var projection = d3.geoNaturalEarth1()
+        .scale(2000)
+        .translate([width / 2, 1600])
+        .precision(.1);
+    var path = d3.geoPath()
+        .projection(projection);
+    //var graticule = d3.geoGraticule();
+    var svg = d3.select("body").append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    var sets = [
+        {
+          name: 'Andalucía',
+          abbrev: 'ES.AN'
+        },
+        {
+          name: 'Aragón',
+          abbrev: 'ES.AR'
+        },
+        {
+          name: 'Cantabria',
+          abbrev: 'ES.CB'
+        },
+        {
+          name: 'Castilla y León',
+          abbrev: 'ES.CL'
+        },
+        {
+          name: 'Castilla-La Mancha',
+          abbrev: 'ES.CM'
+        },
+        {
+          name: 'Cataluña',
+          abbrev: 'ES.CT'
+        },
+        {
+          name: 'Ceuta y Melilla',
+          abbrev: 'ES.CE'
+        },
+        {
+          name: 'Comunidad de Madrid',
+          abbrev: 'ES.MD'
+        },
+        {
+          name: 'Navarra',
+          abbrev: 'ES.NA'
+        },
+        {
+          name: 'Comunidad Valenciana',
+          abbrev: 'ES.VC'
+        },
+        {
+          name: 'Extremadura',
+          abbrev: 'ES.EX'
+        },
+        {
+          name: 'Galicia',
+          abbrev: 'ES.GA'
+        },
+        {
+          name: 'Islas Baleares',
+          abbrev: 'ES.PM'
+        },
+        {
+          name: 'Islas Canarias',
+          abbrev: 'ES.CN'
+        },
+        {
+          name: 'País Vasco',
+          abbrev: 'ES.PV'
+        },
+        {
+          name: 'Asturias',
+          abbrev: 'ES.AS'
+        },
+        {
+          name: 'Murcia',
+          abbrev: 'ES.MU'
+        },
+        {
+          name: 'La Rioja',
+          abbrev: 'ES.LO'
+        }
+    ];
+
+    d3.json("https://raw.githubusercontent.com/deldersveld/topojson/master/countries/spain/spain-comunidad-with-canary-islands.json").then(esp => {
+
+        for (var i = 0; i < sets.length; i++) {
+          svg.append("path")
+              .datum(topojson.merge(esp, esp.objects.ESP_adm1.geometries.filter(function (d) {
+                    //console.log("Adding",d.properties.NAME_1)
+                    return d.properties.HASC_1 == sets[i].abbrev;
+              })))
+              .attr("class", "regions selected")
+              .attr("d", path)
+              .attr('data-name', sets[i].name)
+              .on('mouseover', function () {
+                        var region = d3.select(this);
+                        document.querySelector('.legend').innerText = region.attr('data-name');
+              }).on('mouseout', function () {
+                        document.querySelector('.legend').innerText = '';
+              });
+        }
+        svg.append("path")
+          .datum(topojson.feature(esp, esp.objects.ESP_adm1, (a, b) => a !== b))
+          .attr("class", "border")
+          .attr("d", path);
+        // svg.append("path")
+        //     .datum(graticule)
+        //     .attr("class", "graticule")
+        //     .attr("d", path);
+    });
+    d3.select(self.frameElement).style("height", height + "px");
+</script>
+
+</body>
