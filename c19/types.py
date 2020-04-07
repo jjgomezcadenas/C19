@@ -80,6 +80,18 @@ class SIR:
 
 
 @dataclass
+class SIR2(SIR):
+    """SEIR model of an epidemics"""
+    D     : np.array  # population in track to die
+    M     : np.array  # dead
+    P     : np.array  # Perception of risk
+    phi   : float     # case fatality proportion CFP
+    g     : float     # 1/g mean time from loss of inf to death
+    lamda : float     # 1/landa mean duration of impact of death on population
+    k     : float     # Parameter controlling the intensity of response
+
+
+@dataclass
 class SEIR(SIR):
     """SEIR model of an epidemics"""
     E     : np.array  # population exposed
@@ -91,7 +103,7 @@ class SEIR2(SEIR):
     """SEIR extended model of an epidemics"""
     D     : np.array  # population in track to die
     M     : np.array  # dead
-    P     : np.array  # Perception of risk 
+    P     : np.array  # Perception of risk
     phi   : float     # case fatality proportion CFP
     g     : float     # 1/g mean time from loss of inf to death
     lamda : float     # 1/landa mean duration of impact of death on population

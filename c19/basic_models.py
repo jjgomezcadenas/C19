@@ -11,6 +11,7 @@ from scipy.interpolate import interp1d
 
 from . types import SIR, SEIR, SEIR2
 
+
 def sir_deriv(y, t, M, beta, gamma):
     """Prepares the SIR system of equations"""
     S, I, R = y
@@ -18,6 +19,21 @@ def sir_deriv(y, t, M, beta, gamma):
     dIdt = beta * M(t) * S * I - gamma * I
     dRdt = gamma * I
     return dSdt, dIdt, dRdt
+
+
+def sir2_deriv_time(y, t, M, beta, gamma, phi, g, lamda):
+    """
+    Prepare differential equations for SEIR
+    Includes a mitigation function
+    """
+
+    S, I, R, D, P = y
+    dSdt = -beta * M(t) * S * I
+    dIdt = beta * M(t) * S * I - gamma * I
+    dRdt = (1 - phi) * gamma * I
+    dDdt = phi * gamma * I - g * D
+    dPdt = g * D  - lamda * P
+    return dSdt, dEdt, dIdt, dRdt, dDdt, dPdt
 
 
 def set_sir_initial_conditions(N, i0=1, r0=0):
@@ -43,6 +59,26 @@ def compute_sir(N, Y0, R0, Gamma, t_range, ts = [(0, 400)], ms=[1.0]):
               beta=Beta, R0=R0, gamma=Gamma,  t= t_range)
 
     return sir
+
+
+def compute_sir2(N, Y0, R0, Gamma, Phi, G, Lamda, k,
+                  t_range, ts = [(0, 400)], ms=[1.0]):
+    """Full SEIR run"""
+
+    #Beta           = Gamma * R0 * (1 - P)**k
+    Beta           = Gamma * R0
+    M              = mitigation_function(t_range, ts, ms)
+    RES            = odeint(sir2_deriv_time, Y0, t_range,
+                            args=(M, Beta, Gamma,  Phi, G, Lamda))
+    S, I, R, D, P  = RES.T
+    M              = 1 - S - I - R - D
+
+    sir      = SIR2(N = N, S=S, I=I, R=R, D=D, M=M, P=P,
+                     beta=Beta, R0=R0, gamma=Gamma,
+                     phi=Phi, g=G, lamda=Lamda, k=k,
+                     t= t_range)
+
+    return sir2
 
 
 def seir_deriv(y, t, beta, gamma, sigma):
