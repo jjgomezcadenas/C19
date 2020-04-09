@@ -161,8 +161,8 @@ def get_data_communities(api_key, datapath="../data/data_communities.csv", updat
 
     # Read in the C19 data.
     cases  = pd.read_csv(c19_file_cases);     os.remove(c19_file_cases)
-    ucases = pd.read_csv(c19_file_deaths);    os.remove(c19_file_deaths)
-    fcases = pd.read_csv(c19_file_uci);       os.remove(c19_file_uci)
+    ucases = pd.read_csv(c19_file_uci);       os.remove(c19_file_uci)
+    fcases = pd.read_csv(c19_file_deaths);    os.remove(c19_file_deaths)
     hcases = pd.read_csv(c19_file_hosp);      os.remove(c19_file_hosp)
     rcases = pd.read_csv(c19_file_recovered); os.remove(c19_file_recovered)
 
