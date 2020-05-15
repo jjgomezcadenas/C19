@@ -73,12 +73,14 @@ def frho(rho = ''):
     return _frho
 
 def uV(vals, ts, rho):
+    # convolution funciton: int_t' v(t') rho(t - t')
+    #     vals are the vales of v(t'), and rho(t) is the pdf function
     rs = np.flip(rho(ts))
     v  = np.sum(vals * rs)
     return v
 
 
-def uSEIR(n, r0, ti, tr, tm, phim, ndays = 200, rho = 'theta'):
+def uSEIR(n, r0, ti, tr, tm, phim, ndays = 200, rho = 'theta', S0 = None, D0 = None):
 
     def uDE(s, i, beta):
         return beta * s * i
@@ -90,8 +92,11 @@ def uSEIR(n, r0, ti, tr, tm, phim, ndays = 200, rho = 'theta'):
     S, DE, DI0    = np.zeros(ndays), np.zeros(ndays), np.zeros(ndays)
     E, R, M , I   = np.zeros(ndays), np.zeros(ndays), np.zeros(ndays), np.zeros(ndays)
 
-    S[0], DE[0], DI0[0] = n, 1, 0
-    R[0], M[0] , I[0]   = 0, 0, 0
+    if (S0 is not None): print('S0 : ', S0)
+    if (D0 is not None): print('D0 : ', D0)
+
+    S[0], DE[0], DI0[0] = (n, 1, 0) if S0 is None else S0 #(S0[0], S0[1], S0[2])
+    R[0], M[0] , I[0]   = (0, 0, 0) if D0 is None else D0 #D0[0], D0[1], D0[2]
 
     _frho  = frho(rho)
 
@@ -118,7 +123,54 @@ def uSEIR(n, r0, ti, tr, tm, phim, ndays = 200, rho = 'theta'):
 
     return (S, E, I, R, M), (DE, DI0, DR, DM)
 
-def plt_uSEIR(ts, seir, dseir, title = ''):
+
+def uSEIR_Rvar(n, r0, ti, tr, tm, phim, s1, r1, ndays = 200,
+               rho = 'theta', S0 = None, D0 = None):
+
+    def uDE(s, i, beta):
+        return beta * s * i
+
+    ts = np.arange(ndays)
+    phir   = 1 - phim
+    beta  = (r0/tr)
+
+    S, DE, DI0    = np.zeros(ndays), np.zeros(ndays), np.zeros(ndays)
+    E, R, M , I   = np.zeros(ndays), np.zeros(ndays), np.zeros(ndays), np.zeros(ndays)
+
+    if (S0 is not None): print('S0 : ', S0)
+    if (D0 is not None): print('D0 : ', D0)
+
+    S[0], DE[0], DI0[0] = (n, 1, 0) if S0 is None else S0 #(S0[0], S0[1], S0[2])
+    R[0], M[0] , I[0]   = (0, 0, 0) if D0 is None else D0 #D0[0], D0[1], D0[2]
+
+    _frho  = frho(rho)
+
+    print(str(_frho).split()[1])
+    frhoi, frhor, frhom, = _frho(ti), _frho(tr), _frho(tm)
+
+    for i in range(1, ndays):
+        sp, ip = S[i-1], I[i-1]
+        #print('Sp, Ip', sp, ip)
+        if (1-sp/n) >= s1: beta = r1/tr
+        de     = uDE(sp, ip, beta/n)
+        DE [i] = de
+        di0    =        uV(DE [:i+1], ts[:i+1], frhoi)
+        DI0[i] = di0
+        dr     = phir * uV(DI0[:i+1], ts[:i+1], frhor)
+        dm     = phim * uV(DI0[:i+1], ts[:i+1], frhom)
+        S [i]  = S[i-1] - de
+        R [i]  = R[i-1] + dr
+        M [i]  = M[i-1] + dm
+        E [i]  = E[i-1] + de  - di0
+        I [i]  = I[i-1] + di0 - dr - dm
+
+    DR  = mdeltas(R)
+    DM  = mdeltas(M)
+
+    return (S, E, I, R, M), (DE, DI0, DR, DM)
+
+
+def plt_uSEIR(ts, seir, dseir, title = '', yscale = 'log'):
     S, E, I, R, M   = seir
     DE, DI0, DR, DM = dseir
 
@@ -128,14 +180,16 @@ def plt_uSEIR(ts, seir, dseir, title = ''):
     plt.plot(ts, I, label = 'infected')
     plt.plot(ts, R, label = 'recovered')
     plt.plot(ts, M, label = 'death')
-    plt.grid(); plt.legend(); plt.title(title)
+    plt.ylim((1, 1.5 * np.max(S)))
+    plt.grid(which = 'both'); plt.legend(); plt.title(title); plt.yscale(yscale)
 
     plt.figure(figsize = (8, 6))
     plt.plot(ts, DE , label = r'$\Delta E$')
     plt.plot(ts, DI0, label = r'$\Delta I_0$')
     plt.plot(ts, DM, label = r'$\Delta M$')
     plt.plot(ts, DR, label = r'$\Delta R$')
-    plt.grid(); plt.legend(); plt.title(title)
+    plt.ylim((1., 1.5 * np.max(DI0)))
+    plt.grid(which = 'both'); plt.legend(); plt.title(title); plt.yscale(yscale)
 
     return
 
@@ -163,14 +217,14 @@ def meas(dis, drs, dms, fi = 1.):
     ums = [_um( di, dr, dm)  for di, dr, dm in zip(dis, drs, dms)]
     return ms, ums
 
-def plt_meas(ts, ms, ums):
+def plt_meas(ts, ms, ums, yscale = 'log'):
 
     def _plot(ts, ris, rrs, rms, title ):
         plt.figure(figsize = (8, 6))
         plt.plot(ts, ris , ls = '--', marker = 'o', label = 'infected')
         plt.plot(ts, rrs , ls = '--', marker = 'o', label = 'recovered')
         plt.plot(ts, rms , ls = '--', marker = 'o', label = 'death')
-        plt.grid(); plt.yscale('log'); plt.legend()
+        plt.grid(which = 'both'); plt.yscale(yscale); plt.legend()
         plt.xlabel('days'); plt.ylabel('individuals')
         return
 
@@ -208,12 +262,25 @@ def plt_useir_rvdata(ts, DS, ds):
     plt.plot(ts[:], dios, label = 'infected', ls = '', marker = 'o')
     plt.plot(ts[:], drs , label = 'recovered', ls = '', marker = 'o')
     plt.plot(ts[:], dms , label = 'death'    , ls = '', marker = 'o')
-    plt.grid(); plt.legend();
+    plt.grid(which = 'both'); plt.legend();
     return
 
 
 # Projection hmatrix
 
+def ninfecting(ts, dios, rhor):
+    nsize = len(ts)
+    drs = npa([uV(dios[:i+1], ts[:i+1], rhor) for i in range(nsize)])
+    dis = dios - drs
+    nis = npa([np.sum(dis[:i+1]) for i in range(nsize)])
+    return nis, drs
+
+def betas(ts, xdios, rhor, rhoi):
+    xnis, xxds = ninfecting(ts, xdios, rhor)
+    nes   = npa([uV(xnis[0:i], ts[0:i], rhoi) for i in range(len(ts))])
+    betas = xdios/np.maximum(1., nes)
+    betas[nes <= 0.] = 0.
+    return betas
 
 def nis_(ts, dios, rhor, rhom, phim):
     nsize = len(ts)
@@ -237,6 +304,7 @@ def fhmatrix(frhoi, frhor, frhom):
         #fis   = sis[:nsize]
         h = np.zeros(size * size).reshape(size, size)
         h[0, 0] = uV(nis[:-1], ts[:-1], frhoi)
+        #h[0, 0] = uV(nis[:], ts[:], frhoi)
         h[1, 1] = uV(dis[:], ts[:], frhor)
         h[2, 2] = uV(dis[:], ts[:], frhom)
         return h
@@ -263,6 +331,7 @@ def hmatrices(ts, dios, nis, frhoi, frhor, frhom):
     ndays = len(dios)
     fh   = fhmatrix(frhoi, frhor, frhom)
     hs   = [fh(dios[:i+1], nis[:i+1], ts[:i+1]) for i in range(0, ndays)]
+    #hs   = [fh(dios[:i], nis[:i], ts[:i]) for i in range(0, ndays)]
     #hs = [hs[0],] + hs
     #print(ndays, len(hs))
     return hs
