@@ -95,6 +95,7 @@ def uSEIR(n, r0, ti, tr, tm, phim, ndays = 200, rho = 'theta', S0 = None, D0 = N
     if (S0 is not None): print('S0 : ', S0)
     if (D0 is not None): print('D0 : ', D0)
 
+    #TODO: convert S0, D0 into arrays to start the pandemic after some days
     S[0], DE[0], DI0[0] = (n, 1, 0) if S0 is None else S0 #(S0[0], S0[1], S0[2])
     R[0], M[0] , I[0]   = (0, 0, 0) if D0 is None else D0 #D0[0], D0[1], D0[2]
 
@@ -278,8 +279,9 @@ def ninfecting(ts, dios, rhor):
 def betas(ts, xdios, rhor, rhoi):
     xnis, xxds = ninfecting(ts, xdios, rhor)
     nes   = npa([uV(xnis[0:i], ts[0:i], rhoi) for i in range(len(ts))])
-    betas = xdios/np.maximum(1., nes)
-    betas[nes <= 0.] = 0.
+    betas = np.zeros(len(xdios))
+    xsel = nes > 0
+    betas[xsel] = xdios[xsel]/nes[xsel]
     return betas
 
 def nis_(ts, dios, rhor, rhom, phim):
