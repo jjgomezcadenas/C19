@@ -206,6 +206,9 @@ def mrvs(dv, umin = 1e-5, error = True):
     m[dv < 0] = -1 * m[dv < 0]
     return m
 
+def errors(ds, d0 = 2.4):
+    return np.sqrt(np.maximum(ds, d0))
+
 def meas(dis, drs, dms, fi = 1.):
     def _um(di, dr, dm):
         u = np.identity(3)
@@ -373,9 +376,11 @@ def plt_hmatrices2(ts, hs, ms):
 
 #---- KF
 
-def useir_kf(ms, ums, hs, x0, ux0, qi):
+
+def useir_kf(ms, ums, hs, x0, ux0, qs = None):
     ndays = len(ms)
-    qs    = [np.identity(3) * qi for i in range(ndays)]
+    if (qs is None):
+        qs    = [np.identity(3) * 0. for i in range(ndays)]
     xs, uxs, res = kf._kfs(ms, ums, hs, x0, ux0, qs = qs)
     return xs, uxs, res
 
