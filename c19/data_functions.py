@@ -22,7 +22,7 @@ sensor_dict = {
     "Baleares"          : "B278" , # PALMA DE MALLORCA/SON SAN JUAN
     "Canarias"          : "C029O", # LANZAROTE/AEROPUERTO
     "Cantabria"         : "1111" , # SANTANDER I,CMT
-    "Castilla-La Mancha": "4121" , # CIUDAD REAL
+    "Castilla La Mancha": "4121" , # CIUDAD REAL
     "Castilla y Leon"   : "2422" , # VALLADOLID
     "Cataluna"          : "0016A", # REUS/AEROPUERTO
     "Ceuta"             : "5000C", # CEUTA
@@ -46,7 +46,7 @@ misc_dict = {
     "Baleares"          : {"geoId": "BA", "countryterritoryCode": "BAL", "popData2018": 1128908},
     "Canarias"          : {"geoId": "CN", "countryterritoryCode": "CAN", "popData2018": 2127685},
     "Cantabria"         : {"geoId": "CT", "countryterritoryCode": "CAB", "popData2018": 580229},
-    "Castilla-La Mancha": {"geoId": "CM", "countryterritoryCode": "CLM", "popData2018": 2026807},
+    "Castilla La Mancha": {"geoId": "CM", "countryterritoryCode": "CLM", "popData2018": 2026807},
     "Castilla y Leon"   : {"geoId": "CL", "countryterritoryCode": "CYL", "popData2018": 2409164},
     "Cataluna"          : {"geoId": "CA", "countryterritoryCode": "CAT", "popData2018": 7600065},
     "Ceuta"             : {"geoId": "CE", "countryterritoryCode": "CEU", "popData2018": 85144},
@@ -175,6 +175,7 @@ def get_data_communities(api_key, datapath="../data/data_communities.csv", updat
 
     # Set the region name as index.
     cases  = cases.set_index('CCAA')
+    print(cases.index)
     ucases = ucases.set_index('CCAA')
     fcases = fcases.set_index('CCAA')
     hcases = hcases.set_index('CCAA')
@@ -183,7 +184,7 @@ def get_data_communities(api_key, datapath="../data/data_communities.csv", updat
     # Add the C19 data to the meteo dataframes.
     df_regions = {}
     print("Combining C19 and meteo data...")
-    for region,df in meteo_regions.items():
+    for region, df in meteo_regions.items():
 
         # Get a new dataframe of cases with the dates and # of cases as columns.
         cframe = pd.DataFrame({'ncases'        : cases.loc[region][1:].values,
