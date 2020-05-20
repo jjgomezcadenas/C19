@@ -1,6 +1,11 @@
 import numpy as np
 import pandas as pd
+import os
 import datetime
+
+import c19.data_functions as c19data
+import c19.plotting as cplt
+import c19.io as cio
 
 import c19.useir   as us
 
@@ -10,12 +15,12 @@ import matplotlib.dates as mdates
 
 from numpy import array as npa
 
-npdate = np.datetime64
-npday  = lambda days : np.timedelta64(days, 'D')
+npdate   = np.datetime64
+npdtime  = lambda days : np.timedelta64(days, 'D')
+
+api_key = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqamdvbWV6Y2FkZW5hc0BnbWFpbC5jb20iLCJqdGkiOiI5MDUzYjU1MC0wODkzLTRmYWMtYTNhMC1hNzk2ZDFjMTk0NzIiLCJpc3MiOiJBRU1FVCIsImlhdCI6MTU4NTc1OTIyMiwidXNlcklkIjoiOTA1M2I1NTAtMDg5My00ZmFjLWEzYTAtYTc5NmQxYzE5NDcyIiwicm9sZSI6IiJ9.AiauVzy5kdJStrmK9vxQWpcaTf6Cg7EeVDscrRBX_lU"
 
 date0 = np.datetime64('2020-03-15')
-#dates = [np.datetime64(d) for d in ('2020-02-15', '2020-03-01', '2020-04-01',
-#                                    '2020-04-15', '2020-05-01', '2020-05-15')]
 
 ccaas = {'Madrid'            : ('MA', 'MD'),
          'Cataluña'          : ('CA', 'CT'),
@@ -29,8 +34,6 @@ ccaas = {'Madrid'            : ('MA', 'MD'),
          'Galicia'           : ('GA', 'GA')
 }
 
-def ddate(days):
-    return np.timedelta64(days, 'D')
 
 def formatter(ax):
     locator = mdates.AutoDateLocator(minticks=3, maxticks=12)
@@ -38,8 +41,18 @@ def formatter(ax):
     ax.xaxis.set_major_locator(locator)
     ax.xaxis.set_major_formatter(formatter)
 
-
 #--- sanidad data
+
+def dfsanidad():
+    dfsa    = c19data.get_data_communities(api_key, update = True).fillna(0)
+    return dfsa
+
+def dfmomo():
+    path = '/Users/hernando/investigacion/bio/c19/data'
+    file = os.path.join(path,'momo_17_05_2020.csv')
+    print(file)
+    dfmo = pd.read_csv(file)
+    return dfmo
 
 def dfsanidad_ca(df, ca = 'MA'):
     return df[df.geoId == ca]
@@ -70,6 +83,15 @@ def dfsanidad_cadata(df, ca = 'MA'):
     dios = _mdeltas(nis)
     drs  = _mdeltas(nrs)
     dms  = _mdeltas(nms)
+
+    def _repare(dms):
+        if (ca == 'GA'):
+            sel0 = dates == npdate('2020-04-29')
+            sel1 = dates == npdate('2020-04-28')
+            dms[sel0] = dms[sel1]
+        return dms
+
+    dms = _repare(dms)
 
     ns = (nis , nrs, nms)
     ds = (dios, drs, dms)
@@ -137,7 +159,7 @@ def plt_dfmomo_cadata(xdates, deaths, xdeaths, xerrors, yscale = 'log'):
 
 #--- CCAA comparisons
 
-def plot_ca_momos(dfsa, dfmo, cas = ccaas.keys(), yscale = 'linear'):
+def plot_cas_momos(dfsa, dfmo, cas = ccaas.keys(), yscale = 'linear'):
     nr, nc = int(len(cas)/2  + len(cas)%2), 2
     plt.figure(figsize = (6 * nc, 5 * nr));
     for i, ca in enumerate(cas):
@@ -185,22 +207,6 @@ def ca_comomo(dfsa, dfmo, ca = 'Madrid', nsig = 2., plot = False):
     return mdates, cms, ucms
 
 
-def plot_ca_comomos(dfsa, dfmo, cas = ccaas.keys()):
-
-    nr, nc = int(len(cas)/2  + len(cas)%2), 2
-    plt.figure(figsize = (6 * nc, 5 * nr));
-    pargs = {'ls' : '--', 'marker' : 'o', 'ms' : 4}
-    for i, ca in enumerate(cas):
-        xdates, xdms, xudms = ca_comomo(dfsa, dfmo, ca)
-
-        plt.subplot(nr, nc, i+1)
-        plt.errorbar(xdates, xdms, yerr = xudms, **pargs, label = 'cov-momo' );
-        plt.grid(which = 'both'); plt.legend(); plt.yscale('log');
-        plt.title(ca); formatter(plt.gca());
-    return
-
-
-
 #--- kf a CA
 
 def kfqs(dates, idates, dt, qi = 1.):
@@ -213,36 +219,7 @@ def kfqs(dates, idates, dt, qi = 1.):
     return qs
 
 def ca_kafi(dfsa, dfmo, ca, times = (5, 10, 7, 5), frho = us.fgamma,
-           idates = ('2020-01-01', '2020-06-01'), plot = False):
-
-    ti, tr, tm, td = times
-    idt = int(ti + td + tm)
-
-    xdates, xdms, xudms = ca_comomo(dfsa, dfmo, ca, plot = plot)
-    kms, kums           = kfmeas(xdms, xudms)
-    qs = kfqs(xdates, idates, idt)
-    kres, bres = kafi(xdates, kms, kums, times, frho, qs)
-
-    ydates         = xdates - np.timedelta64(idt, 'D')
-    xs, uxs, _, _  = kres
-    rs  = td * npa([xi[0] for xi in xs])
-    urs = td * npa([np.sqrt(xi[0, 0]) for xi in uxs])
-    hrs = td * bres[0]
-
-    if (plot):
-        plt.figure(figsize = (8, 6))
-        pargs = {'ls' : '--', 'marker' : 'o', 'ms' : 4}
-        plt.errorbar(ydates, rs, yerr = urs, **pargs, label = r'$r(t)$ kf')
-        plt.plot    (ydates, hrs,           **pargs, label = r'$\hat{r}(t)$')
-        plt.grid(which = 'both'); plt.legend(); plt.yscale('log')
-        plt.plot(ydates, [qi[0, 0] for qi in qs]); plt.ylim((0.1, 20.))
-        formatter(plt.gca());
-
-    return ydates, (rs, urs), hrs
-
-
-def ca_kafi_compare(dfsa, dfmo, ca, times = (5, 10, 7, 5), frho = us.fgamma,
-                    idates = ('2020-01-01', '2020-06-01'), plot = False):
+            idates = ('2020-01-01', '2020-06-01'), plot = False):
 
     ti, tr, tm, td = times
     idt = int(ti + td + tm)
@@ -262,62 +239,38 @@ def ca_kafi_compare(dfsa, dfmo, ca, times = (5, 10, 7, 5), frho = us.fgamma,
 
     ca0              = ccaas[ca][0]
     sdates, sns, sds = dfsanidad_cadata(dfsa, ca0)
-    skms, skums      = kfmeas(sds[2], us.errors(sds[2]))
+    sdms, sudms      = sds[2], us.errors(sds[2])
+    skms, skums      = kfmeas(sdms, sudms)
     sqs              = kfqs(sdates, idates, idt)
     skres, sbres     = kafi(sdates, skms, skums, times, frho, sqs)
     skrs             = _rs(skres)
     sdates           = sdates - np.timedelta64(idt, 'D')
 
     if (plot):
-        plt.figure(figsize = (8, 6))
-        pargs = {'ls' : '--', 'marker' : 'o', 'ms' : 4}
-        plt.errorbar(xdates, krs[0] , yerr = krs[1] , **pargs, label = r'$r(t)$ comomo')
-        plt.errorbar(sdates, skrs[0], yerr = skrs[1], **pargs, label = r'$r(t)$ covid')
-        plt.grid(which = 'both'); plt.legend(); plt.yscale('log')
-        #plt.plot(ydates, [qi[0, 0] for qi in qs]); plt.ylim((0.1, 20.))
-        formatter(plt.gca());
+        pargs  = {'ls' : '--', 'marker' : 'o', 'ms' : 4}
+        yscale = 'log'
+        idate0 = '2020-02-25'
+        plt.figure(figsize = (12, 5))
+
+        plt.subplot(1, 2, 1)
+        plt.errorbar(xdates, xdms, yerr = xudms, **pargs, label = 'comomo');
+        plt.errorbar(sdates, sdms, yerr = sudms, **pargs, label = 'covid');
+        plt.grid(which = 'both'); plt.legend(); plt.yscale(yscale)
+        formatter(plt.gca()); plt.title(r'$\Delta I_0$ proxy ' + str(ca))
+
+        plt.subplot(1, 2, 2)
+        xsel = xdates >= npdate(idate0)
+        plt.errorbar(xdates[xsel], krs[0][xsel] , yerr = krs[1][xsel],  **pargs, label = r'$r(t)$ comomo kf')
+        plt.plot    (xdates[xsel], td * bres[0][xsel],                  **pargs, label = r'$\hat{r}(t)$ comomo')
+        #xsel = sdates >= npdate(idate0)
+        #plt.errorbar(sdates[xsel], skrs[0][xsel], yerr = skrs[1][xsel], **pargs, label = r'$r(t)$ covid kf')
+        plt.grid(which = 'both'); plt.legend(); plt.yscale(yscale); plt.ylim((0.1, 20.))
+        formatter(plt.gca()); plt.title(r'$r(t)$ ' + str(ca))
 
     return (xdates, krs[0], krs[1]), (sdates, skrs[0], skrs[1])
 
 
-def plot_ca_rs(dfsa, dfmo, cas, **kargs):
-
-    nr, nc = int(len(cas)/2  + len(cas)%2), 2
-    plt.figure(figsize = (6 * nc, 5 * nr));
-    pargs = {'ls' : '--', 'marker' : 'o', 'ms' : 4}
-    for i, ca in enumerate(cas):
-        cas, cam = ccaas[ca]
-        xdates, xrs, hrs = ca_kafi(dfsa, dfmo, ca, **kargs)
-        rs, urs = xrs
-
-        plt.subplot(nr, nc, i+1)
-        plt.errorbar(xdates, rs, yerr = urs, **pargs, label = r'$r(t)$ KF' );
-        plt.plot    (xdates, hrs,            **pargs, label = r'$\hat{r}(t)$')
-        plt.grid(which = 'both'); plt.legend(); plt.yscale('log');
-        plt.title(ca); formatter(plt.gca());  plt.ylim((0.1, 20))
-    return
-
-def plot_ca_rs_compare(dfsa, dfmo, cas, **kargs):
-
-    nr, nc = int(len(cas)/2  + len(cas)%2), 2
-    plt.figure(figsize = (6 * nc, 5 * nr));
-    pargs = {'ls' : '--', 'marker' : 'o', 'ms' : 4}
-    for i, ca in enumerate(cas):
-        cas, cam = ccaas[ca]
-        xs, ys = ca_kafi_compare(dfsa, dfmo, ca, **kargs)
-        xdates, xrs, xurs = xs
-        ydates, yrs, yurs = ys
-
-
-        plt.subplot(nr, nc, i+1)
-        plt.errorbar(xdates, xrs, yerr = xurs, **pargs, label = r'$r(t)$ comomo' );
-        plt.errorbar(ydates, yrs, yerr = yurs, **pargs, label = r'$r(t)$ covid')
-        plt.grid(which = 'both'); plt.legend(); plt.yscale('log');
-        plt.title(ca); formatter(plt.gca());  plt.ylim((0.1, 20))
-    return
-
-
-#--- Fits
+#--- KF fits
 
 def kfmeas(dms, udms):
     norma  = np.sum(dms)
@@ -329,7 +282,7 @@ def kfmeas(dms, udms):
 
     return kms, kums
 
-def kafi(dates, kms, kums, times, frho, qs = 0., x0 = (1., 0.8, 0.2)):
+def kafi(dates, kms, kums, times, frho, qs = 0., x0 = (2., 0.8, 0.2)):
 
     nsample = len(kms)
     ts = np.arange(len(dates))
@@ -342,7 +295,7 @@ def kafi(dates, kms, kums, times, frho, qs = 0., x0 = (1., 0.8, 0.2)):
     hs             = us.hmatrices(ts, xdios, xnis, frho(ti), frho(tr), frho(tm))
 
     x0           = npa(x0)
-    ux0          = np.identity(3) * 1.
+    ux0          = np.identity(3) * 10.
 
     if (type(qs) == float):
         qs = [np.identity(3) * qs for i in range(nsample)]
