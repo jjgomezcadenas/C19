@@ -101,7 +101,7 @@ def uSEIR(n, r0, ti, tr, tm, phim, ndays = 200, rho = 'theta', S0 = None, D0 = N
 
     _frho  = frho(rho)
 
-    print(str(_frho).split()[1])
+    #print(str(_frho).split()[1])
     frhoi, frhor, frhom, = _frho(ti), _frho(tr), _frho(tm)
 
     for i in range(1, ndays):
@@ -417,3 +417,51 @@ def plt_useir_kf(ts, xs, uxs, res):
     _plot(rs, pr, pm, 'residuals')
 
     return
+
+
+#----- useir LL fit
+
+def _useir(r0, ti, tr):
+    n        = 1e6
+    tm, phim, ndays, srho = tr, 0.01, 200, 'gamma'
+    ns, ds = uSEIR(n, r0, ti, tr, tm, phim, ndays, rho = srho)
+    return ds[3]
+
+def useir_rv(dms):
+    tbins  = np.arange(len(dms)+1)
+    #tbins  = _binedges(sir.t)
+    irv = stats.rv_histogram((dms, tbins))
+    return irv
+
+def _useir_pars_inrange(r0, ti, tr):
+    if (r0 < 0 or ti < 0 or tr < 0): return False
+    if (r0 > 20): return False
+    if (ti > 15 or tr > 20): return False
+    return True
+    #if (n0 > 1e6): return false
+
+def useir_llike(times, r0, ti, tr):
+    n0 = len(times)
+    if (not _useir_pars_inrange(r0, ti, tr)): return -200 * len(times)
+    dms = _useir(r0, ti, tr)
+    ni   = np.sum(dms)
+    irv  = useir_rv(dms)
+    p1   = irv.logpdf(times)
+    p2   = stats.poisson(ni).logpmf(n0)
+    return p1 + p2
+
+def useir_fun(times, r0, ti, tr):
+    dms = _useir(r0, ti, tr)
+    irv  = useir_rv(dms)
+    dt   = 1. #isir.t[1] - isir.t[0]
+    nn   = len(times) # float(np.sum(dms)) * dt
+    return nn * irv.pdf(times)
+
+#--- MLike tools
+
+def useir_mle():
+
+    isir  = sir(N, beta, gamma)
+    tbins = _binedged(isir.t)
+    hrvi  = stats.rv_histogram((tbins, cis))
+    hrvi  = stats.rv_histogram((tbins, cis))
