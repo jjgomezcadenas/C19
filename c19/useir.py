@@ -101,7 +101,7 @@ def uSEIR(n, r0, ti, tr, tm, phim, ndays = 200, rho = 'theta', S0 = None, D0 = N
 
     _frho  = frho(rho)
 
-    print(str(_frho).split()[1])
+    #print(str(_frho).split()[1])
     frhoi, frhor, frhom, = _frho(ti), _frho(tr), _frho(tm)
 
     for i in range(1, ndays):
@@ -146,7 +146,7 @@ def uSEIR_Rvar(n, r0, ti, tr, tm, phim, s1, r1, ndays = 200,
 
     _frho  = frho(rho)
 
-    print(str(_frho).split()[1])
+    #print(str(_frho).split()[1])
     frhoi, frhor, frhom, = _frho(ti), _frho(tr), _frho(tm)
 
     for i in range(1, ndays):
@@ -417,3 +417,85 @@ def plt_useir_kf(ts, xs, uxs, res):
     _plot(rs, pr, pm, 'residuals')
 
     return
+
+
+#----- useir LL fit
+
+#def _useir(r0, ti, tr):
+#    n        = 1e6
+#    tm, phim, ndays, srho = tr, 0.01, 200, 'gamma'
+#    ns, ds = uSEIR(n, r0, ti, tr, tm, phim, ndays, rho = srho)
+#    return ds[3]
+
+def _useir(pars):
+    N               = 1e6
+    R0, TI, TR, TM  = 3., 5., 5., 5.
+    PhiM            = 0.01
+    ndays           = 200
+    rho             = 'gamma'
+
+    r0, tr  = pars
+    tm      = tr
+    #print(r0, TI, tr, tm, phim, srho, ndays)
+    ns, ds = uSEIR(N, r0, TI, tr, tm, PhiM, ndays = ndays, rho = rho)
+    return ds[3]
+
+def _parslim(pars):
+    noks = np.sum(npa([xi >= 0 and xi < 20 for xi in pars]))
+    return noks == len(pars)
+
+def _useirvar(pars):
+    n, ndays        = 3e6, 200
+    s1              = 0.05
+    r0, r1          = 3., 0.8
+    ti, tr, tm      = 5, 5, 5
+    phim            = 0.03
+    srho            = 'gamma'
+
+    r0, r1, tr  = pars
+    tm      = tr
+    ns, ds = uSEIR_Rvar(n, r0, ti, tr, tm, phim, s1, r1, ndays = ndays, rho = srho)
+    return ds[3]
+
+#------
+
+def useir_rv(dms):
+    tbins  = np.arange(len(dms)+1)
+    #tbins  = _binedges(sir.t)
+    irv = stats.rv_histogram((dms, tbins))
+    return irv
+
+def useir_llike(times, pars, ufun = _useir):
+    ni = len(times)
+    #if (not _parslim(pars)): return -200 * len(times)
+    dms  = ufun(pars)
+    ts   = np.arange(len(dms))
+    t0   = np.mean(ts * dms) / np.sum(dms)
+    ti   = np.mean(times)
+    dt   = t0 - ti
+    #print(dt)
+    dt   = 0
+    xtimes = dt + times
+    n0   = np.sum(dms)
+    irv  = useir_rv(dms)
+    p1   = irv.logpdf(xtimes)
+    p2   = stats.poisson(n0).logpmf(ni)
+    return p1 + p2
+
+def useir0_llike(times, pars, ufun = _useir):
+    t0, tpars = pars[0], pars[1:]
+    xtimes = times + t0
+    return useir_llike(xtimes, tpars, ufun = ufun)
+
+def useir_fun(times, pars, ufun = _useir):
+    dms  = ufun(pars)
+    irv  = useir_rv(dms)
+    nn   = np.sum(dms) # float(np.sum(dms)) * dt
+    return nn * irv.pdf(times)
+
+def useir0_fun(times, pars, ufun = _useir):
+    t0, tpars = pars[0], pars[1:]
+    xtimes = times + t0
+    return useir_fun(xtimes, tpars, ufun = ufun)
+
+#--- MLike tools
