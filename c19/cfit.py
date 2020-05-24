@@ -41,7 +41,7 @@ def _array_par_mask(par, mask = None):
     return par, mask
 
 
-def mle(x, llike, par, mask = None):
+def mle(x, llike, par, mask = None, checkpar = None):
     """ compute maximum likelihood estimate
     parameters:
         x    : np.array      ,   rvs
@@ -54,10 +54,12 @@ def mle(x, llike, par, mask = None):
     #mask = mask if mask is not None else np.ones(par.size, dtype = bool)
     #if (type(mask) is tuple): mask = np.array(mask)
     ps = _par(par, mask)
+    checkpar = lambda x: True if checkpar is None else checkpar
     def _mll(ps):
         ms = _setpar(par, ps, mask)
         #print('xs, ms ', x, *ms)
-        return np.sum(-2. * llike(x, *ms))
+        if (not checkpar(ms)): return -2e6 * llike(x, ms)
+        return np.sum(-2. * llike(x, ms))
     result = optimize.minimize(_mll, ps, method='Nelder-Mead')
     if (not result.success): print('mle: warning')
     #print('mle ', result)
@@ -101,6 +103,37 @@ def qmu_pvalue(qmu):
 
 def q0_pvalue(q0):
     return qmu_pvalue(q0)
+
+
+#-------
+
+def lsq(xs, ys, fun, par, mask = None, eys = None, checkpar = None):
+    """ compute maximum likelihood estimate
+    parameters:
+        x    : np.array      ,   rvs
+        llike: callable      ,   logpdf function, that takes x (rvs) and parameters (np.array)
+        par  : np.array      ,   pdf parameters
+        mask : np.array(book),   mask = fix parameters of par during the fit
+    """
+    #print('mle par, size', par, par.size, mask)
+    par, mask = _array_par_mask(par, mask)
+    #mask = mask if mask is not None else np.ones(par.size, dtype = bool)
+    #if (type(mask) is tuple): mask = np.array(mask)
+    ps = _par(par, mask)
+    eys = np.ones(len(xs)) if eys is None else eys
+    checkpar = lambda x: True if checkpar is None else checkpar
+    def _chi2(ps):
+        ms = _setpar(par, ps, mask)
+        if (not checkpar(ms)): return np.zeros(len(xs))
+        ds = (ys - fun(xs, ms))/ eys
+        val =  np.sum(ds * ds)
+        #print(val)
+        return val
+    result = optimize.minimize(_chi2, ps, method='Nelder-Mead')
+    if (not result.success): print('mle: warning')
+    #print('mle ', result)
+    return result.x
+
 
 #
 # class htsimple:
