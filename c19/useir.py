@@ -423,6 +423,36 @@ def plt_useir_kf(ts, xs, uxs, res):
 #----- useir LL fit
 
 
+def _useirext(pars):
+
+    beta, tr, ti, n, phim = pars
+    #r0, tr  = pars
+    tm      = tr
+    r0      = beta * tm
+
+    ndays           = 200
+    rho             = 'gamma'
+
+    #print(n, r0, ti, tr, tm, phim, rho, ndays)
+    ns, ds = uSEIR(n, r0, ti, tr, tm, phim, ndays = ndays, rho = rho)
+    return ds[3]
+
+
+def _useirvarext(pars):
+
+    beta, gamma, tr, ti, n, phim, s1 = pars
+
+    #factor = 0.041
+    r0, r1   = beta * tr, gamma * tr
+    tm       = tr
+    # TODO pass the rest of arguments
+
+    ndays           = 200
+    srho            = 'gamma'
+
+    ns, ds = uSEIR_Rvar(n, r0, ti, tr, tm, phim, s1, r1, ndays = ndays, rho = srho)
+    return ds[3]
+
 def _useir(pars, args = None):
 
     r0, tr  = pars
@@ -437,13 +467,14 @@ def _useir(pars, args = None):
 
     r0, tr  = pars
     tm      = tr
-    #print(r0, TI, tr, tm, phim, srho, ndays)
+    print(r0, TI, tr, tm, phim, srho, ndays)
     ns, ds = uSEIR(N, r0, TI, tr, tm, PhiM, ndays = ndays, rho = rho)
     return ds[3]
 
 def _useirvar(pars, args = None):
+    factor = 1. # 0.041
     # TODO pass the rest of arguments
-    n, ndays        = 3e6, 200
+    n, ndays        = 3e6 * factor, 200
     s1              = 0.05
     r0, r1          = 3., 0.8
     ti, tr, tm      = 5, 5, 5
@@ -466,7 +497,7 @@ def _t0(pars, ufun = _useir):
 
 
 def _rv(dms):
-    tbins  = np.arange(len(dms))
+    tbins  = np.arange(len(dms) + 1)
     #tbins  = _binedges(sir.t)
     irv = stats.rv_histogram((dms, tbins))
     return irv
@@ -481,7 +512,7 @@ def rvs(pars, size = 0, ufun = _useir):
     ni     = stats.poisson(n0).rvs(size = 1)
     size   = ni if size == 0 else size
     times  = rv.rvs(size = size)
-    ys, xs = np.histogram(times, nbins, (0, nbins))
+    ys, xs = np.histogram(times, nbins+1, (0, nbins+1))
     res    = times, (xs[:-1], ys)
     return res
 
@@ -536,5 +567,5 @@ def res(data, pars = None, ufun = _useir, sqr = True):
 def chi2(data, pars, ufun = _useir):
     return np.sum(res(data, pars, ufun = ufun))
 
-def mll(data, pars, ufun = _useir):
+def mle(data, pars, ufun = _useir):
     return np.sum(mll(data, pars, ufun = ufun))

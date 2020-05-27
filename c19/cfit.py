@@ -132,10 +132,15 @@ def lsq(xs, ys, fun, par, mask = None, eys = None, checkpar = None):
     result = optimize.minimize(_chi2, ps, method='Nelder-Mead')
     if (not result.success): print('mle: warning')
     #print('mle ', result)
-    return result.x
+    parhat = result.x
+    if (mask is not None):
+        parhat = _setpar(par, parhat, mask)
+    return parhat
 
 
 #----------------------------
+
+minmethods =  ('Nelder-Mead', 'BFGS')
 
 def minimize(par, mfun, mask = None, checkpar = None, method = 'Nelder-Mead'):
     """ compute maximum likelihood estimate
@@ -158,8 +163,11 @@ def minimize(par, mfun, mask = None, checkpar = None, method = 'Nelder-Mead'):
         return np.sum(mfun(ms))
     result = optimize.minimize(_mll, ps, method = method)
     if (not result.success): print('mle: warning')
+    parhat = result.x
+    if (mask is not None):
+        parhat = _setpar(par, parhat, mask)
     #print('mle ', result)
-    return result.x
+    return parhat
 
 
 def scan(pars, mfun, index, vals):
