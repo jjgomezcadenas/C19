@@ -249,3 +249,10 @@ def get_data_communities(api_key, datapath="../data/data_communities.csv", updat
     print("-- Done")
 
     return cdf
+
+
+def c19_select_ca_and_date_xdead(dm, ca_code='MA', datei='2020-03-10', dates='2020-06-10'):
+    dfs = dm.loc[dm['geoId'] == ca_code]
+    dfts = dfs.loc[dfs['dateRep'] >= np.datetime64(datei)]
+    dfts2 = dfts.loc[dfts['dateRep'] < np.datetime64(dates)]
+    return dfts2
