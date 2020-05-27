@@ -451,9 +451,15 @@ def plot_fit_scan(pars, fun, vals0, vals1, index0 = 0, index1 = 1,
     plt.plot(x0, y0, marker = '*', color = 'black', ms = 10);
     plt.colorbar(cc);
 
-def fit_ana(ffun, xpars, pars = None, mask = None):
+
+def fit_ana(ffun, xpars, pars = None, mask = None, method = 'Nelder-Mead'):
+
+    def _checkpar(xpars):
+        ok = [x >0 and x < 20 for xi in xpars]
+        return np.sum(npa(ok, int)) == len(xpars)
     pars = xpars if pars is None else pars
-    parshat = cfit.minimize(xpars, ffun, mask = mask)
+    parshat = cfit.minimize(xpars, ffun, mask = mask,
+                            checkpar = _checkpar, method = method)
     print('true', pars, ', guess ', xpars, ', best ', parshat)
     fbest, ftrue = np.sum(ffun(parshat)), np.sum(ffun(pars))
     print('f best ', fbest, ', f true ', ftrue, ', f delta ', ftrue - fbest)

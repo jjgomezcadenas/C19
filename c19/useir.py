@@ -467,7 +467,7 @@ def _useir(pars, args = None):
 
     r0, tr  = pars
     tm      = tr
-    print(r0, TI, tr, tm, phim, srho, ndays)
+    #print(N, r0, TI, tr, tm, PhiM, rho, ndays)
     ns, ds = uSEIR(N, r0, TI, tr, tm, PhiM, ndays = ndays, rho = rho)
     return ds[3]
 

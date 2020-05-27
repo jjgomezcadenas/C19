@@ -6,7 +6,7 @@
 import numpy          as np
 import scipy.stats    as stats
 import scipy.optimize as optimize
-
+import iminuit        as im
 
 def _llike(rv):
     meths = dir(rv)
@@ -60,7 +60,7 @@ def mle(x, llike, par, mask = None, checkpar = None):
         #print('xs, ms ', x, *ms)
         if (not checkpar(ms)): return -2e6 * llike(x, ms)
         return np.sum(-2. * llike(x, ms))
-    result = optimize.minimize(_mll, ps, method='Nelder-Mead')
+    result = engine.minimize(_mll, ps, method='Nelder-Mead')
     if (not result.success): print('mle: warning')
     #print('mle ', result)
     return result.x
@@ -140,9 +140,18 @@ def lsq(xs, ys, fun, par, mask = None, eys = None, checkpar = None):
 
 #----------------------------
 
-minmethods =  ('Nelder-Mead', 'BFGS')
+minmethods =  ['CG', 'dogleg', 'Nelder-Mead', 'BFGS', 'Powell']
 
-def minimize(par, mfun, mask = None, checkpar = None, method = 'Nelder-Mead'):
+def _getminimize(method):
+    if (method in minmethods):
+        fun = lambda fun, pars: optimize.minimize(fun, pars,  method = method)
+        print(method)
+        return fun
+    print('Minuit')
+    return im.minimize
+
+
+def minimize(par, mfun, mask = None, checkpar = None, method = 'Minuit'):
     """ compute maximum likelihood estimate
     parameters:
         x    : np.array      ,   rvs
@@ -161,7 +170,8 @@ def minimize(par, mfun, mask = None, checkpar = None, method = 'Nelder-Mead'):
         #print('xs, ms ', x, *ms)
         if (not checkpar(ms)): return 1e6 * np.abs(np.sum(mfun(ms)))
         return np.sum(mfun(ms))
-    result = optimize.minimize(_mll, ps, method = method)
+    _minimize = _getminimize(method)
+    result = _minimize(_mll, ps)
     if (not result.success): print('mle: warning')
     parhat = result.x
     if (mask is not None):
