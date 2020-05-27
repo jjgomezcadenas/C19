@@ -6,7 +6,7 @@
 import numpy          as np
 import scipy.stats    as stats
 import scipy.optimize as optimize
-
+import iminuit        as im
 
 def _llike(rv):
     meths = dir(rv)
@@ -60,7 +60,7 @@ def mle(x, llike, par, mask = None, checkpar = None):
         #print('xs, ms ', x, *ms)
         if (not checkpar(ms)): return -2e6 * llike(x, ms)
         return np.sum(-2. * llike(x, ms))
-    result = optimize.minimize(_mll, ps, method='Nelder-Mead')
+    result = engine.minimize(_mll, ps, method='Nelder-Mead')
     if (not result.success): print('mle: warning')
     #print('mle ', result)
     return result.x
@@ -132,7 +132,69 @@ def lsq(xs, ys, fun, par, mask = None, eys = None, checkpar = None):
     result = optimize.minimize(_chi2, ps, method='Nelder-Mead')
     if (not result.success): print('mle: warning')
     #print('mle ', result)
-    return result.x
+    parhat = result.x
+    if (mask is not None):
+        parhat = _setpar(par, parhat, mask)
+    return parhat
+
+
+#----------------------------
+
+minmethods =  ['CG', 'dogleg', 'Nelder-Mead', 'BFGS', 'Powell']
+
+def _getminimize(method):
+    if (method in minmethods):
+        fun = lambda fun, pars: optimize.minimize(fun, pars,  method = method)
+        print(method)
+        return fun
+    print('Minuit')
+    return im.minimize
+
+
+def minimize(par, mfun, mask = None, checkpar = None, method = 'Minuit'):
+    """ compute maximum likelihood estimate
+    parameters:
+        x    : np.array      ,   rvs
+        llike: callable      ,   logpdf function, that takes x (rvs) and parameters (np.array)
+        par  : np.array      ,   pdf parameters
+        mask : np.array(book),   mask = fix parameters of par during the fit
+    """
+    #print('mle par, size', par, par.size, mask)
+    par, mask = _array_par_mask(par, mask)
+    #mask = mask if mask is not None else np.ones(par.size, dtype = bool)
+    #if (type(mask) is tuple): mask = np.array(mask)
+    ps = _par(par, mask)
+    checkpar = lambda x: True if checkpar is None else checkpar
+    def _mll(ps):
+        ms = _setpar(par, ps, mask)
+        #print('xs, ms ', x, *ms)
+        if (not checkpar(ms)): return 1e6 * np.abs(np.sum(mfun(ms)))
+        return np.sum(mfun(ms))
+    _minimize = _getminimize(method)
+    result = _minimize(_mll, ps)
+    if (not result.success): print('mle: warning')
+    parhat = result.x
+    if (mask is not None):
+        parhat = _setpar(par, parhat, mask)
+    #print('mle ', result)
+    return parhat
+
+
+def scan(pars, mfun, index, vals):
+    ypars = [np.copy(pars) for v in vals]
+    for i, v in enumerate(vals): ypars[i][index] = v
+    res = np.array([np.sum(mfun(ypar)) for ypar in ypars])
+    return res
+
+def scan2d(pars, mfun, index1, vals1, index2, vals2):
+    n1, n2 = len(vals1), len(vals2)
+    res    = np.zeros(n1 * n2).reshape(n1, n2)
+    for j, v2 in enumerate(vals2):
+        ypar = np.copy(pars)
+        ypar[index2] = v2
+        xres = scan(ypar, mfun, index1, vals1)
+        res[:, j] = xres
+    return res
 
 
 #

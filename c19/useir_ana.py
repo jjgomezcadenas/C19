@@ -2,12 +2,14 @@ import numpy as np
 import pandas as pd
 import os
 import datetime
+from   collections import Iterable
 
 import c19.data_functions as c19data
 import c19.plotting as cplt
 import c19.io as cio
 
 import c19.useir   as us
+import c19.cfit    as cfit
 
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import imshow
@@ -399,6 +401,70 @@ def plt_kf_ana(dates, times, kfres, nisres, yscale = 'log'):
     plt.plot(dates - idt, td * xbetas, ls = '--', marker = 'o', label = 'betas')
     plt.grid(which = 'both'); plt.legend(); plt.yscale(yscale)
     formatter(plt.gca());
+
+#---------- LL and chi2 fits
+
+def fit_setpars(pars0, pars, mask):
+    ypars = np.copy(pars0)
+    ypars[np.array(mask, bool)] = pars
+    return ypars
+
+def plot_fit_data(xdata, pars, ufun = us._useir):
+    xs, ys = xdata
+    yerr   = np.sqrt(ys)
+    plt.errorbar(xs, ys, yerr = np.sqrt(ys), ls = '', label = 'data',
+                 marker = 'o', ms = 4, c = 'black');
+    fun    = us.fmodel(pars, ufun = ufun)
+    plt.plot(xs, fun(xs), ls = '--', c = 'blue', label = 'model')
+    plt.grid(); plt.legend();
+    return
+
+def plot_fit_scan(pars, fun, vals0, vals1, index0 = 0, index1 = 1,
+                  nbins = 5, nlevels = 20):
+
+    def _vals(vals, index):
+        if (not isinstance(vals, Iterable)):
+            r, d = pars[index], vals
+            vals = np.linspace(r-d, r+d, nbins+1)
+        return vals
+
+    vals0 = _vals(vals0, index0)
+    #print(vals0)
+    xvals = cfit.scan(pars, fun, index0, vals0)
+    plt.figure()
+    plt.plot(vals0, xvals - np.min(xvals));
+
+    vals1 = _vals(vals1, index1)
+    #print(vals1)
+    xvals = cfit.scan(pars, fun, index1, vals1)
+    plt.figure()
+    plt.plot(vals1, xvals - np.min(xvals));
+
+    xvals = cfit.scan2d(pars, fun, index0, vals0, index1, vals1)
+
+    plt.figure()
+    #r0, tm = parshat
+    xx, yy = np.meshgrid(vals0, vals1)
+    zz     = xvals - np.min(xvals)
+    cc = plt.contourf(xx, yy, zz.T, alpha = 0.5, levels = nlevels);
+    x0, y0 = pars[index0], pars[index1]
+    plt.plot(x0, y0, marker = '*', color = 'black', ms = 10);
+    plt.colorbar(cc);
+
+
+def fit_ana(ffun, xpars, pars = None, mask = None, method = 'Nelder-Mead'):
+
+    def _checkpar(xpars):
+        ok = [x >0 and x < 20 for xi in xpars]
+        return np.sum(npa(ok, int)) == len(xpars)
+    pars = xpars if pars is None else pars
+    parshat = cfit.minimize(xpars, ffun, mask = mask,
+                            checkpar = _checkpar, method = method)
+    print('true', pars, ', guess ', xpars, ', best ', parshat)
+    fbest, ftrue = np.sum(ffun(parshat)), np.sum(ffun(pars))
+    print('f best ', fbest, ', f true ', ftrue, ', f delta ', ftrue - fbest)
+    return parshat
+
 
 #--- plot data
 #
