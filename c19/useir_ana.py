@@ -133,7 +133,7 @@ def dfmomo_ca(df, ca = 'MD', cod_sexo='all', cod_gedad='all'):
     c4 = c3[c3['cod_gedad'] == cod_gedad]
     return c4
 
-def dfmomo_cadata(df, ca = 'MD', date0 = '2020-03-01'):
+def dfmomo_cadata(df, ca = 'MD', date0 = '2020-03-01', date1 = '2020-06-10'):
     dfs     = dfmomo_ca(df, ca)
 
     sdates  = dfs['fecha_defuncion'].values
@@ -149,6 +149,7 @@ def dfmomo_cadata(df, ca = 'MD', date0 = '2020-03-01'):
     derrors  = np.sqrt(deaths[sel] + deaths0[sel])
 
     return xdates, ydeaths, ddeaths, derrors
+
 
 
 def plt_dfmomo_cadata(xdates, deaths, xdeaths, xerrors, yscale = 'log'):
