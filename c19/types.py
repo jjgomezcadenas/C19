@@ -23,40 +23,38 @@ Vector = TypeVar('Vector', List, np.array)
 
 EPS = 1e-7  # default tolerance
 
-
-c19_dict = {
-    "Andalucia"         : {"geoId": "AN", "ca_code":"AN", "countryterritoryCode": "AND", "popData2018": 8384408},
-    "Aragon"            : {"geoId": "AR", "ca_code":"AR","countryterritoryCode": "ARA", "popData2018": 1308728},
-    "Asturias"          : {"geoId": "AS", "ca_code":"AS","countryterritoryCode": "AST", "popData2018": 1028244},
-    "Baleares"          : {"geoId": "BA", "ca_code":"IB","countryterritoryCode": "BAL", "popData2018": 1128908},
-    "Canarias"          : {"geoId": "CN", "ca_code":"CN","countryterritoryCode": "CAN", "popData2018": 2127685},
-    "Cantabria"         : {"geoId": "CT", "ca_code":"CB","countryterritoryCode": "CAB", "popData2018": 580229},
-    "Castilla La Mancha": {"geoId": "CM", "ca_code":"CM","countryterritoryCode": "CLM", "popData2018": 2026807},
-    "Castilla y Leon"   : {"geoId": "CL", "ca_code":"CL","countryterritoryCode": "CYL", "popData2018": 2409164},
-    "Cataluna"          : {"geoId": "CA", "ca_code":"CT","countryterritoryCode": "CAT", "popData2018": 7600065},
-    "Ceuta"             : {"geoId": "CE", "ca_code":"CE","countryterritoryCode": "CEU", "popData2018": 85144},
-    "C. Valenciana"     : {"geoId": "CV", "ca_code":"VC","countryterritoryCode": "CVA", "popData2018": 4963703},
-    "Extremadura"       : {"geoId": "EX", "ca_code":"EX","countryterritoryCode": "EXT", "popData2018": 1072863},
-    "Galicia"           : {"geoId": "GA", "ca_code":"GA","countryterritoryCode": "GAL", "popData2018": 2701743},
-    "Madrid"            : {"geoId": "MA", "ca_code":"MD","countryterritoryCode": "MAD", "popData2018": 6578079},
-    "Melilla"           : {"geoId": "ME", "ca_code":"ML","countryterritoryCode": "MEL", "popData2018": 86384},
-    "Murcia"            : {"geoId": "MU", "ca_code":"MC","countryterritoryCode": "MUR", "popData2018": 1478509},
-    "Navarra"           : {"geoId": "NA", "ca_code":"NC","countryterritoryCode": "NAV", "popData2018": 647554},
-    "Pais Vasco"        : {"geoId": "PV", "ca_code":"PV","countryterritoryCode": "PVA", "popData2018": 2199088},
-    "La Rioja"          : {"geoId": "LR", "ca_code":"RI","countryterritoryCode": "RIO", "popData2018": 315675}
-}
+dCCAA = {'Andalucia': {'c19': 'AN', 'momo': 'AN'},
+         'Aragon': {'c19': 'AR', 'momo': 'AR'},
+        'Asturias': {'c19': 'AS', 'momo': 'AS'},
+        'Baleares': {'c19': 'BA', 'momo': 'IB'},
+        'Canarias': {'c19': 'CN', 'momo': 'CN'},
+        'Cantabria': {'c19': 'CT', 'momo': 'CB'},
+        'Castilla La Mancha': {'c19': 'CM', 'momo': 'CM'},
+        'Castilla y Leon': {'c19': 'CL', 'momo': 'CL'},
+        'Cataluna': {'c19': 'CA', 'momo': 'CT'},
+        'Ceuta': {'c19': 'CE', 'momo': 'CE'},
+        'C. Valenciana': {'c19': 'CV', 'momo': 'VC'},
+         'Extremadura': {'c19': 'EX', 'momo': 'EX'},
+         'Galicia': {'c19': 'GA', 'momo': 'GA'},
+         'Madrid': {'c19': 'MA', 'momo': 'MD'},
+         'Melilla': {'c19': 'ME', 'momo': 'ML'},
+         'Murcia': {'c19': 'MU', 'momo': 'MC'},
+         'Navarra': {'c19': 'NA', 'momo': 'NC'},
+         'Pais Vasco': {'c19': 'PV', 'momo': 'PV'},
+         'La Rioja': {'c19': 'LR', 'momo': 'RI'}
+        }
 
 
-def get_dicts(c19_dict):
-    c19d = {}
-    isc3d = {}
-    for caaa_name, caa_dict in c19_dict.items():
-        c19d[caaa_name] = caa_dict["geoId"]
-        isc3d[caaa_name] = caa_dict["ca_code"]
+def dccaa_dicts(dCCAA, key='c19'):
+    """Return direct and inverse dictionaries or c19 and momo"""
+    mdict = {k : dCCAA[k][key] for k in dCCAA.keys()}
+    imdict = {v : k for k, v in mdict.items()}
+    return mdict, imdict
 
-    return c19d, isc3d
+dc19, idc19 = dccaa_dicts(dCCAA, key='c19')
+dmomo, idmomo = dccaa_dicts(dCCAA, key='momo')
 
-c19d, isc3d = get_dicts(c19_dict)
+
 
 class Verbosity(Enum):
     mute     = 0

@@ -5,6 +5,7 @@ import pandas as pd
 import datetime
 import os
 import urllib
+#from . types import c19_dict, c19d, isc3d
 
 # C19 data files.
 url_c19_files      = "https://raw.githubusercontent.com/datadista/datasets/master/COVID%2019"
@@ -251,8 +252,12 @@ def get_data_communities(api_key, datapath="../data/data_communities.csv", updat
     return cdf
 
 
-def c19_select_ca_and_date_xdead(dm, ca_code='MA', datei='2020-03-10', dates='2020-06-10'):
+def c19_select_ca_and_date_xdead(dm, ca_code='MA', datei='2020-03-10', datef='2020-06-10'):
     dfs = dm.loc[dm['geoId'] == ca_code]
     dfts = dfs.loc[dfs['dateRep'] >= np.datetime64(datei)]
-    dfts2 = dfts.loc[dfts['dateRep'] < np.datetime64(dates)]
+    dfts2 = dfts.loc[dfts['dateRep'] < np.datetime64(datef)]
     return dfts2
+
+
+def c19_get_ccaa_data(dm, datei='2020-03-10', datef='2020-06-10', dic= c19d):
+    return{ccaa:c19_select_ca_and_date_xdead(dm, c19d[ccaa], datei, datef) for ccaa in c19d.keys()}
