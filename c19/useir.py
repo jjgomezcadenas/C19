@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-import c19.kfmysir as kf
+import c19.kfilter as kf
 import scipy.stats as stats
 import c19.cfit    as cfit
 
@@ -377,6 +377,58 @@ def plt_hmatrices2(ts, hs, ms):
 
 #---- KF
 
+def useir_kfs(ds, times, q0 = 0., x0 = None, ux0 = None, phim = 0.1, sis = None):
+    """
+    ds   : dios, drs, dms # new infected, recovered, deaths per day
+    times: ti  ,  tr, tm  # time infection, recovery, death
+    q0   :                # errors between steps
+    x0   :                # guess parameters
+    ux0  :                # guess uncentanties matrix
+    phim : 0.1            # fraction of deaths
+    sis  : 1.             # array of susceptibles (to fit beta-const)
+    """
+    dios, drs, dms = ds
+    ti, tr, tm     = times
+    nsize          = len(dios)
+    ms, ums        = meas(dios, drs, dms)
+    ts             = np.arange(nsize)
+
+    frho = fgamma
+
+    nis, _  = nis_(ts, dios, frho(tr), frho(tm), phim)
+    sis     = 1. if sis is None else sis
+    hs      = hmatrices(ts, dios,  sis * nis, frho(ti), frho(tr), frho(tm))
+
+    fs = [np.identity(3)      for i in range(nsize)]
+    qs = [q0 * np.identity(3) for i in range(nsize)]
+
+    ks = [kf.KFnode(mi, umi, hi, fi, qi) for mi, umi, hi, fi, qi in zip(ms, ums, hs, fs, qs)]
+
+    x0   = x0  if x0  is not None else npa((1., 0.8, 0.2))
+    ux0  = ux0 if ux0 is not None else 1. * np.identity(3)
+    ks = kf.kfilter(ks, x0, ux0)
+    xm, uxm = [ki.xm for ki in ks], [ki.uxm for ki in ks]
+
+    ks = kf.kfsmooth(ks)
+    xs, uxs = [ki.xs for ki in ks], [ki.uxs for ki in ks]
+
+    return (xs, uxs), (xm, uxm)
+
+def plot_kfs(xs, uxs, labels = (r'$\beta$', r'$\Phi_R$', r'$\Phi_M$')):
+    nsize = len(xs)
+    msize = len(xs[0])
+    ts    = np.arange(nsize)
+
+    plt.figure(figsize = (8, 6))
+    for k in range(msize):
+        rs  = npa([xi[k]              for xi  in xs])
+        urs = npa([np.sqrt(uxi[k, k]) for uxi in uxs])
+        #print(rs)
+        plt.errorbar(ts, rs, yerr = urs, ls = '', marker = 'o', ms = 4,label = labels[k])
+    plt.grid(which = 'both');
+    plt.legend()
+
+#------
 
 def useir_kf(ms, ums, hs, x0, ux0, qs = None):
     ndays = len(ms)
