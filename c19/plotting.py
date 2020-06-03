@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 from . c19stats import lognorm_pdf, hdt
-from . data_functions import misc_dict
+from . data_functions_c19 import misc_dict
 from . io import ecdc_select_country
 
 

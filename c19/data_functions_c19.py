@@ -5,7 +5,8 @@ import pandas as pd
 import datetime
 import os
 import urllib
-#from . types import c19_dict, c19d, isc3d
+from . types import dc19, idc19, dmomo, idmomo
+
 
 # C19 data files.
 url_c19_files      = "https://raw.githubusercontent.com/datadista/datasets/master/COVID%2019"
@@ -259,5 +260,5 @@ def c19_select_ca_and_date_xdead(dm, ca_code='MA', datei='2020-03-10', datef='20
     return dfts2
 
 
-def c19_get_ccaa_data(dm, datei='2020-03-10', datef='2020-06-10', dic= c19d):
-    return{ccaa:c19_select_ca_and_date_xdead(dm, c19d[ccaa], datei, datef) for ccaa in c19d.keys()}
+def c19_get_ccaa_data(dm, datei='2020-03-10', datef='2020-06-10'):
+    return{ccaa:c19_select_ca_and_date_xdead(dm, dc19[ccaa], datei, datef) for ccaa in dc19.keys()}
