@@ -46,6 +46,9 @@ def _kfs(ms, ums, hs, x0, ux0 = None, fs = None, qs = None):
         xs[i], uxs[i], res[i] = xi, uxi, resi
     return xs, uxs, res
 
+
+#------
+
 def _delta(xs, type = float):
     #dxs[1:] = dxs[1:] - xs[:-1]
     #dxs = np.array(dxs, dtype = type)

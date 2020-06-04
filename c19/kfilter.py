@@ -77,6 +77,8 @@ def kfilter(kfnodes, x0, ux0):
     nsize = len(kfnodes)
     msize = len(x0)
 
+    _kfstep = _kfstep_m
+
     def _kfnode0(x0, ux0):
         k0 = KFnode()
         k0.xm  = x0
@@ -109,7 +111,7 @@ def kfsmooth(kfnodes):
 
     return kfnodes
 
-def _kfstep(kip, ki):
+def _kfstep_m(kip, ki):
 
     #print('x0  ', kip.xm)
     #print('ux0 ', kip.uxm)
@@ -125,11 +127,38 @@ def _kfstep(kip, ki):
     #print('res ', ki.res)
 
     ki.uxm = inv(inv(ki.uxp) + m_(ki.h.T, m_(ki.um, ki.h)))
-    #print('uxm :', ki.uxm)
+    #print('um  : ', ki.um)
+    #print('uxm : ', ki.uxm)
     ki.xm  = m_(ki.uxm, m_(inv(ki.uxp), ki.xp) + m_(ki.h.T, m_(ki.um, ki.m.T)))
     #print('xm  : ', ki.xm)
 
     return ki
+
+def _kfstep_k(kip, ki):
+
+    #print('x0  ', kip.xm)
+    #print('ux0 ', kip.uxm)
+    #print('f  :', kip.f)
+    #print('q  :', kip.q)
+
+    ki.xp    = m_(kip.f, kip.xm.T)
+    ki.uxp   = m_(kip.f, m_(kip.uxm, kip.f.T)) + kip.q
+    #print('xp  : ', ki.xp)
+    #print('uxp : ', ki.uxp)
+
+    ki.res = ki.m - m_(ki.h, ki.xp.T)
+    ki.k   = m_( m_(ki.uxp, ki.h.T), inv(m_(ki.h, m_(ki.uxp, ki.h.T)) + ki.um))
+    #print('res : ', ki.res)
+    #print('k   : ', ki.k)
+
+    ide    = np.identity(len(ki.xp))
+    ki.xm  = ki.xp + m_(ki.k, ki.res.T)
+    ki.uxm = m_((ide - m_(ki.k, ki.h)), ki.uxp)
+    #print('xm  : ', ki.xm)
+    #print('uxm : ', ki.uxm)
+
+    return ki
+
 
 def _kfback(kip, ki):
     #print('fT-1 ', kip.f.T)
