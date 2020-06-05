@@ -1,8 +1,8 @@
 import numpy as np
 from numpy.linalg import inv
 
-mprod_ = np.matmul
-
+m_     = np.matmul
+mprod_ = m_
 
 def _kfi(xp, uxp, m, um, h, f = None, q = None):
     #if (f is not None): print('---')
@@ -46,6 +46,129 @@ def _kfs(ms, ums, hs, x0, ux0 = None, fs = None, qs = None):
         xs[i], uxs[i], res[i] = xi, uxi, resi
     return xs, uxs, res
 
+
+def _kfs(xi, xi1, xi1p, ui, ui1p, ui1, fi = None):
+    size = len(xs)
+    fi   = fi if fi is not None else np.identity(size)
+    ak   = mprod_(ui, mprod_(fi.T, inv(uip)))
+    xis  = xi + mprod_(ai, (xi1 - xi1p))
+    uis  = ui + mprod_(ai, ui1p - ui1p)
+    print('Ak ', ak)
+    print('xk ', xis)
+    return xis,
+
+class KFnode:
+
+    names  = ['xp', 'uxp', 'k', 'res']
+    names += ['xm', 'uxm', 'a', 'xs', 'uxs']
+
+    def __init__(self, m = None, um = None, h = None, f = None, q = None):
+        for name in KFnode.names:
+            setattr(self, name, None)
+        self.m   = m
+        self.um  = um
+        self.h   = h
+        self.f   = f
+        self.q   = q
+        return
+
+def kfilter(kfnodes, x0, ux0):
+
+    nsize = len(kfnodes)
+    msize = len(x0)
+
+    _kfstep = _kfstep_m
+
+    def _kfnode0(x0, ux0):
+        k0 = KFnode()
+        k0.xm  = x0
+        k0.uxm = ux0
+        k0.f   =      np.identity(msize)
+        k0.q   = 0. * np.identity(msize)
+        return k0
+
+    k0 = _kfnode0(x0, ux0)
+    kfnodes[0] = _kfstep(k0, kfnodes[0])
+    for i in range(1, nsize):
+        #print('i-node ', i)
+        _kfstep(kfnodes[i-1], kfnodes[i])
+
+    return kfnodes
+
+def kfsmooth(kfnodes):
+    nsize = len(kfnodes)
+
+    def _klast(kn):
+        kn.xs  = kn.xm
+        kn.uxs = kn.uxm
+        return kn
+
+    _klast(kfnodes[-1])
+
+    for i in range(nsize-2, -1, -1):
+        #print('back-step ', i)
+        _kfback(kfnodes[i], kfnodes[i+1])
+
+    return kfnodes
+
+def _kfstep_m(kip, ki):
+
+    #print('x0  ', kip.xm)
+    #print('ux0 ', kip.uxm)
+    #print('f0  ', kip.f)
+    #print('q0  ', kip.q)
+
+    ki.xp  = m_(kip.f, kip.xm.T)
+    #print('xp  :', ki.xp)
+    ki.uxp = m_(kip.f, m_(kip.uxm, kip.f.T)) + kip.q
+    #print('uxp :', ki.uxp)
+
+    ki.res = ki.m - m_(ki.h, ki.xp.T)
+    #print('res ', ki.res)
+
+    ki.uxm = inv(inv(ki.uxp) + m_(ki.h.T, m_(ki.um, ki.h)))
+    #print('um  : ', ki.um)
+    #print('uxm : ', ki.uxm)
+    ki.xm  = m_(ki.uxm, m_(inv(ki.uxp), ki.xp) + m_(ki.h.T, m_(ki.um, ki.m.T)))
+    #print('xm  : ', ki.xm)
+
+    return ki
+
+def _kfstep_k(kip, ki):
+
+    #print('x0  ', kip.xm)
+    #print('ux0 ', kip.uxm)
+    #print('f  :', kip.f)
+    #print('q  :', kip.q)
+
+    ki.xp    = m_(kip.f, kip.xm.T)
+    ki.uxp   = m_(kip.f, m_(kip.uxm, kip.f.T)) + kip.q
+    #print('xp  : ', ki.xp)
+    #print('uxp : ', ki.uxp)
+
+    ki.res = ki.m - m_(ki.h, ki.xp.T)
+    ki.k   = m_( m_(ki.uxp, ki.h.T), inv(m_(ki.h, m_(ki.uxp, ki.h.T)) + ki.um))
+    #print('res : ', ki.res)
+    #print('k   : ', ki.k)
+
+    ide    = np.identity(len(ki.xp))
+    ki.xm  = ki.xp + m_(ki.k, ki.res.T)
+    ki.uxm = m_((ide - m_(ki.k, ki.h)), ki.uxp)
+    #print('xm  : ', ki.xm)
+    #print('uxm : ', ki.uxm)
+
+    return ki
+
+
+def _kfback(kip, ki):
+    #print('fT-1 ', kip.f.T)
+    #print('Cp   ', ki.uxp)
+    #print('Cm-1 ', kip.uxm)
+    kip.a   = m_(kip.uxm, m_(kip.f.T, inv(ki.uxp)))
+    #print('A    ', kip.a)
+    kip.xs  = kip.xm  + m_(kip.a, (ki.xs - ki.xp).T)
+    kip.uxs = kip.uxm + m_(kip.a, m_(ki.uxs - ki.uxp, kip.a.T))
+    return ki
 
 #------
 

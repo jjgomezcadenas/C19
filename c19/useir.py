@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-import c19.kfmysir as kf
+import c19.kfilter as kf
 import scipy.stats as stats
 import c19.cfit    as cfit
 
@@ -210,17 +210,20 @@ def mrvs(dv, umin = 1e-5, error = True):
 def errors(ds, d0 = 2.4):
     return np.sqrt(np.maximum(ds, d0))
 
-def meas(dis, drs, dms, fi = 1.):
+def meas(dis, drs, dms, fi = 1., vmin = 2.4):
     def _um(di, dr, dm):
         u = np.identity(3)
-        u[0, 0] = fi * np.maximum(np.abs(di), 2.4)
-        u[1, 1] = fi * np.maximum(np.abs(dr), 2.4)
-        u[2, 2] = fi * np.maximum(np.abs(dm), 2.4)
+        u[0, 0] = fi * np.maximum(np.abs(di), vmin)
+        u[1, 1] = fi * np.maximum(np.abs(dr), vmin)
+        u[2, 2] = fi * np.maximum(np.abs(dm), vmin)
         return u
 
     ms  = [npa((di, dr, dm)) for di, dr, dm in zip(dis, drs, dms)]
     ums = [_um( di, dr, dm)  for di, dr, dm in zip(dis, drs, dms)]
     return ms, ums
+
+
+
 
 def plt_meas(ts, ms, ums, yscale = 'log'):
 
@@ -377,6 +380,116 @@ def plt_hmatrices2(ts, hs, ms):
 
 #---- KF
 
+def kfmeas(ds, uds = (None, None, None), vmin = 2.4, scale = False):
+    dios, drs, dms = ds
+    drs   = np.copy(dios) if drs is None else drs
+    dms   = np.copy(dios) if dms is None else dms
+    udios, udrs, udms = uds
+    udios = np.maximum(dios, vmin) if udios is None else np.maximum(udios, vmin)
+    udrs  = np.maximum(drs , vmin) if udrs  is None else np.maximum(udrs , vmin)
+    udms  = np.maximum(dms , vmin) if udms  is None else np.maximum(udms , vmin)
+
+    nscale = 1. if scale is False else np.sum(dios)
+    ide = np.identity(3) * nscale * nscale
+    ms  = [      npa((di, dr, dm))/nscale   for di, dr, dm in zip(dios , drs , dms)]
+    ums = [ide * npa((1./di, 1./dr, 1./dm)) for di, dr, dm in zip(udios, udrs, udms)]
+
+    return ms, ums
+
+
+def kfhmatrices(ts, dios, times, sis = None, frho = fgamma, scale = False):
+    nscale = np.sum(dios) if scale is True else 1.
+    ti, tr, tm = times
+    #nis, _  = nis_(ts, dios, frho(tr), frho(tm), phim)
+    nis , _ = ninfecting(ts, dios/nscale, frho(tr))
+    sis     = 1. if sis is None else sis
+    hs      = hmatrices(ts,  dios/nscale,  sis * nis, frho(ti), frho(tr), frho(tm))
+    return hs
+
+
+def useir_kfs(ds, times, q0 = 0., uds = None, x0 = None, ux0 = None,
+              sis = None, scale = False):
+    """
+    ds   : dios, drs, dms # new infected, recovered, deaths per day
+    times: ti  ,  tr, tm  # time infection, recovery, death
+    q0   :                # errors between steps
+    x0   :                # guess parameters
+    ux0  :                # guess uncentanties matrix
+    phim : 0.1            # fraction of deaths
+    sis  : 1.             # array of susceptibles (to fit beta-const)
+    """
+    dios, drs, dms = ds
+    ti, tr, tm     = times
+    nsize          = len(dios)
+
+    uds            = (None, None, None) if uds is None else uds
+    ms, ums        = kfmeas(ds, uds, scale = scale)
+    ts             = np.arange(nsize)
+
+    hs             = kfhmatrices(ts, dios, times, sis = sis, scale = scale)
+
+    fs = [np.identity(3)      for i in range(nsize)]
+
+    if (len(q0) != nsize):
+        q0 = [q0 for i in range(nsize)]
+    qs = [qi * np.identity(3) for qi in q0]
+
+    ks = [kf.KFnode(mi, umi, hi, fi, qi) for mi, umi, hi, fi, qi in zip(ms, ums, hs, fs, qs)]
+
+    x0   = x0  if x0  is not None else npa((1., 0.8, 0.2))
+    ux0  = ux0 if ux0 is not None else 1. * np.identity(3)
+    ks = kf.kfilter(ks, x0, ux0)
+    xm, uxm = [ki.xm for ki in ks], [ki.uxm for ki in ks]
+
+    ks = kf.kfsmooth(ks)
+    xs, uxs = [ki.xs for ki in ks], [ki.uxs for ki in ks]
+
+    return (xs, uxs), (xm, uxm)
+
+def plot_kfs(xs, uxs, labels = (r'$\beta$', r'$\Phi_R$', r'$\Phi_M$')):
+    nsize = len(xs)
+    msize = len(xs[0])
+    ts    = np.arange(nsize)
+
+    plt.figure(figsize = (8, 6))
+    for k in range(msize):
+        rs  = npa([xi[k]              for xi  in xs])
+        urs = npa([np.sqrt(uxi[k, k]) for uxi in uxs])
+        #print(rs)
+        plt.errorbar(ts, rs, yerr = urs, ls = '', marker = 'o', ms = 4,label = labels[k])
+    plt.grid(which = 'both');
+    plt.legend()
+
+#------
+#     KFS with data
+#-------
+
+
+def useir_kfs_comomo(dates, cases, ucases, times, dates_blind, q0 = 1.):
+
+    nsize          = len(dates)
+    #t0             = int(tm)
+    #dios           = np.zeros(nsize)
+    #dios[:-t0]     = cases[t0:]
+    ti, td, tm     = times
+    ds             = (cases, cases, cases)
+    uds            = (ucases, ucases, ucases)
+
+    q0      = q0 * np.ones(nsize)
+    date0, date1 = dates_blind
+    sel    = (dates >= np.datetime64(date0)) & (dates <= np.datetime64(date1))
+    q0[sel] = 1.
+
+    kfres = useir_kfs(ds, times, uds = uds, q0 = q0, scale = True)
+
+    def _betas(xs, uxs):
+        betas  = td * npa([xi[0]             for xi in xs])
+        ubetas = td * npa([np.sqrt(xi[0, 0]) for xi in uxs])
+        return betas, ubetas
+
+    return _betas(*kfres[0]), _betas(*kfres[1])
+
+#-------
 
 def useir_kf(ms, ums, hs, x0, ux0, qs = None):
     ndays = len(ms)
