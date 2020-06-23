@@ -145,9 +145,9 @@ minmethods =  ['CG', 'dogleg', 'Nelder-Mead', 'BFGS', 'Powell']
 def _getminimize(method):
     if (method in minmethods):
         fun = lambda fun, pars: optimize.minimize(fun, pars,  method = method)
-        print(method)
+        #print(method)
         return fun
-    print('Minuit')
+    #print('Minuit')
     return im.minimize
 
 

@@ -62,6 +62,12 @@ def ftriang(ti, dti = 0, ndays = 200):
     norma  = np.sum(xp(ts))
     return lambda x: xp(x)/norma
 
+def fweibull(ti, c0 = 1.23, fi = 1., ndays = 200):
+    xp     = stats.weibull_min(c0, scale = fi * ti ).pdf
+    ts     = np.arange(ndays)
+    norma  = np.sum(xp(ts))
+    return lambda x: xp(x)/norma
+
 def frho(rho = ''):
 
     _frho  = ftheta
@@ -70,6 +76,7 @@ def frho(rho = ''):
     elif (rho == 'gamma')  : _frho = fgamma
     elif (rho == 'uniform'): _frho = funiform
     elif (rho == 'triang') : _frho = ftriang
+    elif (rho == 'weibull'): _frho = fweibull
 
     return _frho
 
@@ -154,6 +161,52 @@ def uSEIR_Rvar(n, r0, ti, tr, tm, phim, s1, r1, ndays = 200,
         sp, ip = S[i-1], I[i-1]
         #print('Sp, Ip', sp, ip)
         if (1-sp/n) >= s1: beta = r1/tr
+        de     = uDE(sp, ip, beta/n)
+        DE [i] = de
+        di0    =        uV(DE [:i+1], ts[:i+1], frhoi)
+        DI0[i] = di0
+        dr     = phir * uV(DI0[:i+1], ts[:i+1], frhor)
+        dm     = phim * uV(DI0[:i+1], ts[:i+1], frhom)
+        S [i]  = S[i-1] - de
+        R [i]  = R[i-1] + dr
+        M [i]  = M[i-1] + dm
+        E [i]  = E[i-1] + de  - di0
+        I [i]  = I[i-1] + di0 - dr - dm
+
+    DR  = mdeltas(R)
+    DM  = mdeltas(M)
+
+    return (S, E, I, R, M), (DE, DI0, DR, DM)
+
+
+def uSEIRq(n, r0, ti, tr, tm, phim, t1, r1, ndays = 200,
+               rho = 'theta', S0 = None, D0 = None):
+
+    def uDE(s, i, beta):
+        return beta * s * i
+
+    ts = np.arange(ndays)
+    phir   = 1 - phim
+    beta  = (r0/tr)
+
+    S, DE, DI0    = np.zeros(ndays), np.zeros(ndays), np.zeros(ndays)
+    E, R, M , I   = np.zeros(ndays), np.zeros(ndays), np.zeros(ndays), np.zeros(ndays)
+
+    if (S0 is not None): print('S0 : ', S0)
+    if (D0 is not None): print('D0 : ', D0)
+
+    S[0], DE[0], DI0[0] = (n, 1, 0) if S0 is None else S0 #(S0[0], S0[1], S0[2])
+    R[0], M[0] , I[0]   = (0, 0, 0) if D0 is None else D0 #D0[0], D0[1], D0[2]
+
+    _frho  = frho(rho)
+
+    #print(str(_frho).split()[1])
+    frhoi, frhor, frhom, = _frho(ti), _frho(tr), _frho(tm)
+
+    for i in range(1, ndays):
+        sp, ip = S[i-1], I[i-1]
+        #print('Sp, Ip', sp, ip)
+        if (i >= t1): beta = r1/tr
         de     = uDE(sp, ip, beta/n)
         DE [i] = de
         di0    =        uV(DE [:i+1], ts[:i+1], frhoi)
@@ -465,7 +518,8 @@ def plot_kfs(xs, uxs, labels = (r'$\beta$', r'$\Phi_R$', r'$\Phi_M$')):
 #-------
 
 
-def useir_kfs_comomo(dates, cases, ucases, times, dates_blind, q0 = 1.):
+def useir_kfs_comomo(dates, cases, ucases, times,
+                    dates_blind = None, q0 = 1.):
 
     nsize          = len(dates)
     #t0             = int(tm)
@@ -476,18 +530,20 @@ def useir_kfs_comomo(dates, cases, ucases, times, dates_blind, q0 = 1.):
     uds            = (ucases, ucases, ucases)
 
     q0      = q0 * np.ones(nsize)
+
+    dates_blind = ('2030-01-01', '2030-12-31') if dates_blind is None else dates_blind
     date0, date1 = dates_blind
     sel    = (dates >= np.datetime64(date0)) & (dates <= np.datetime64(date1))
     q0[sel] = 1.
 
     kfres = useir_kfs(ds, times, uds = uds, q0 = q0, scale = True)
 
-    def _betas(xs, uxs):
-        betas  = td * npa([xi[0]             for xi in xs])
-        ubetas = td * npa([np.sqrt(xi[0, 0]) for xi in uxs])
-        return betas, ubetas
+    def _rs(xs, uxs):
+        rs  = td * npa([xi[0]             for xi in xs])
+        urs = td * npa([np.sqrt(xi[0, 0]) for xi in uxs])
+        return rs, urs
 
-    return _betas(*kfres[0]), _betas(*kfres[1])
+    return _rs(*kfres[0]), _rs(*kfres[1])
 
 #-------
 
@@ -535,8 +591,25 @@ def plt_useir_kf(ts, xs, uxs, res):
 
 #----- useir LL fit
 
+fname = 'weibull'
 
-def _useirext(pars):
+def _useirq(pars, fname = 'weibull'):
+
+    beta, gamma, tr, ti, tm, n, phim, t1 = pars
+
+    #factor = 0.041
+    r0, r1   = beta * tr, gamma * tr
+    tm       = tr
+    # TODO pass the rest of arguments
+
+    ndays           = 200
+    srho            = fname
+
+    ns, ds = uSEIRq(n, r0, ti, tr, tm, phim, t1, r1, ndays = ndays, rho = srho)
+    return ds[3]
+
+
+def _useirext(pars, fname = 'gamma'):
 
     beta, tr, ti, n, phim = pars
     #r0, tr  = pars
@@ -544,14 +617,33 @@ def _useirext(pars):
     r0      = beta * tm
 
     ndays           = 200
-    rho             = 'gamma'
+    rho             = fname
 
     #print(n, r0, ti, tr, tm, phim, rho, ndays)
     ns, ds = uSEIR(n, r0, ti, tr, tm, phim, ndays = ndays, rho = rho)
     return ds[3]
 
 
-def _useirvarext(pars):
+
+def _useirvarextmfix(pars, fname = 'gamma'):
+
+    beta, gamma, tr, ti, tm, n, phim, s1 = pars
+
+    tm = tr
+    #factor = 0.041
+    r0, r1   = beta * tr, gamma * tr
+    #tm       = tr
+    # TODO pass the rest of arguments
+
+    ndays           = 200
+    srho            = fname
+
+    ns, ds = uSEIR_Rvar(n, r0, ti, tr, tm, phim, s1, r1, ndays = ndays, rho = srho)
+    return ds[3]
+
+
+
+def _useirqr(pars, fname = 'gamma'):
 
     beta, gamma, tr, ti, n, phim, s1 = pars
 
@@ -560,8 +652,41 @@ def _useirvarext(pars):
     tm       = tr
     # TODO pass the rest of arguments
 
+    ndays    = 200
+    srho     = fname
+
+    ns, ds = uSEIR_Rvar(n, r0, ti, tr, tm, phim, s1, r1, ndays = ndays, rho = srho)
+    return ds[3]
+
+
+
+def _useirqm(pars, fname = 'gamma'):
+
+    beta, gamma, tr, ti, tm, n, phim, s1 = pars
+
+    #factor = 0.041
+    r0, r1   = beta * tr, gamma * tr
+    #tm       = tr
+    # TODO pass the rest of arguments
+
     ndays           = 200
-    srho            = 'gamma'
+    srho            = fname
+
+    ns, ds = uSEIR_Rvar(n, r0, ti, tr, tm, phim, s1, r1, ndays = ndays, rho = srho)
+    return ds[3]
+
+
+def _useirvarext(pars, fname = 'gamma'):
+
+    beta, gamma, tr, ti, tm, n, phim, s1 = pars
+
+    #factor = 0.041
+    r0, r1   = beta * tr, gamma * tr
+    #tm       = tr
+    # TODO pass the rest of arguments
+
+    ndays           = 200
+    srho            = fname
 
     ns, ds = uSEIR_Rvar(n, r0, ti, tr, tm, phim, s1, r1, ndays = ndays, rho = srho)
     return ds[3]
@@ -576,7 +701,7 @@ def _useir(pars, args = None):
     R0, TI, TR, TM  = 3., 5., 5., 5.
     PhiM            = 0.01
     ndays           = 200
-    rho             = 'gamma'
+    rho             = fname
 
     r0, tr  = pars
     tm      = tr
@@ -592,7 +717,7 @@ def _useirvar(pars, args = None):
     r0, r1          = 3., 0.8
     ti, tr, tm      = 5, 5, 5
     phim            = 0.03
-    srho            = 'gamma'
+    srho            = fname
 
     r0, r1, tr  = pars
     tm          = tr
@@ -669,8 +794,8 @@ def res(data, pars = None, ufun = _useir, sqr = True):
         rv  = _rv(dms)
         ni  = np.sum(dms)
         ds  = npa([yi - ni * rv.pdf(xi) for xi, yi in zip(xs, ys)])
-        #ds  = npa([ds/ye                for ds, ye in zip(ds, yerr)])
-        if (sqr): ds = ds *ds
+        ds  = npa([ds/ye                for ds, ye in zip(ds, yerr)])
+        if (sqr): ds = ds * ds
         return ds
 
     res = _fun if pars is None else _fun(pars)
@@ -682,3 +807,6 @@ def chi2(data, pars, ufun = _useir):
 
 def mle(data, pars, ufun = _useir):
     return np.sum(mll(data, pars, ufun = ufun))
+
+
+#---- useirvar help data_functions

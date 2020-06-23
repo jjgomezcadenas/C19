@@ -8,6 +8,7 @@ import c19.plotting as cplt
 import c19.io as cio
 
 import c19.useir   as us
+import c19.cfit    as cfit
 
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import imshow
@@ -23,17 +24,30 @@ api_key = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqamdvbWV6Y2FkZW5hc0BnbWFpbC5jb20iLCJq
 date0 = np.datetime64('2020-03-15')
 
 ccaas = {'Madrid'            : ('MA', 'MD'),
-         'Cataluña'          : ('CA', 'CT'),
          'Castilla y Leon'   : ('CL', 'CL'),
          'Castilla La Mancha': ('CM', 'CM'),
+         'Cataluna'          : ('CA', 'CT'),
+         'C. Valenciana'     : ('CV', 'VC'),
+         'Aragon'            : ('AR', 'AR'),
+         'Pais Vasco'        : ('PV', 'PV'),
          'Navarra'           : ('NA', 'NC'),
-         'Euskadi'           : ('PV', 'PV'),
-         'Valencia'          : ('CV', 'VC'),
-         'Aragón'            : ('AR', 'AR'),
+         'Pais Vasco'        : ('PV', 'PV'),
+         'La Rioja'          : ('LR', 'LR'),
+         'Cantabria'         : ('CT', 'CT'),
+         'Asturias'          : ('AS', 'AS'),
+         'Galicia'           : ('GA', 'GA'),
+         'Murcia'            : ('MU', 'MU'),
          'Andalucia'         : ('AN', 'AN'),
-         'Galicia'           : ('GA', 'GA')
+         'Extremadura'       : ('EX', 'EX'),
+         'Baleares'          : ('BA', 'BA'),
+         'Canarias'          : ('CN', 'CN')
 }
 
+
+def figure(nx = 1, ny = 1):
+    if (len(plt.get_fignums()) > 0): return
+    plt.figure(figsize = (nx * 6, ny * 5))
+    return
 
 def formatter(ax):
     locator = mdates.AutoDateLocator(minticks=3, maxticks=12)
@@ -46,6 +60,14 @@ def formatter(ax):
 def dfsanidad():
     dfsa    = c19data.get_data_communities(api_key, update = True).fillna(0)
     return dfsa
+
+def population(dfs = None):
+    dfs = dfsanidad() if dfs is None else dfs
+    nn = {}
+    for key in ccaas.keys():
+        cas = ccaas[key][0]
+        nn[key] = dfs[dfs.geoId == cas].popData2018.values[0]
+    return nn
 
 def dfmomo():
     path = '/Users/hernando/investigacion/bio/c19/data'
@@ -400,7 +422,200 @@ def plt_kf_ana(dates, times, kfres, nisres, yscale = 'log'):
     plt.grid(which = 'both'); plt.legend(); plt.yscale(yscale)
     formatter(plt.gca());
 
-#--- plot data
+#--- KFs - plots
+
+def plot_data_kfs_rs(dates, cases, rs_filter, rs_smooth = None, ucases = None):
+
+    figure()
+    yerr = ucases if ucases is not None else np.maximum(2.4, np.sqrt(cases))
+    plt.errorbar(dates, cases, yerr = yerr, ls = '', marker = '*', color = 'black', ms = 4);
+    ax2 = plt.gca().twinx()
+    bs, ubs = rs_filter
+    ax2.errorbar(dates, bs , yerr = ubs , ls = '--', marker = 'o', ms = 4, label = 'filter')
+    if (rs_smooth is not None):
+        bs, ubs = rs_smooth
+        ax2.errorbar(dates, bs , yerr = ubs , ls = '--', marker = 'o', ms = 4, label = 'smoother')
+    ax2.grid(which = 'both'); plt.legend();
+    formatter(plt.gca()); plt.ylim((0., 8.)); #plt.yscale('log')
+    return
+
+#--- LLF - fits - functions
+
+
+def useirqr_fit(dates, cases, kpars = {}, kmask = ('beta', 'gamma', 'tr'), ffit = 'chi2'):
+
+    xpars = [30., 1., 0.3, 3., 5.5, 3e6, 0.01, 0.1]
+    xmask = 8 * [False,]
+    ixpar = {'t0' : 0, 'beta' : 1, 'gamma' : 2, 'tr' : 3, 'ti' : 4,
+             'n'  : 5, 'phi'  : 6, 's1' : 7}
+
+    ts     = np.arange(len(dates))
+    xdata  = ts, cases
+
+    umod = lambda pars : us._useirqr(pars, 'weibull')
+    ufun = lambda pars : us._t0(pars, umod)
+    _fun   = us.mll if ffit == 'mle' else us.res
+    fun    = _fun(xdata, ufun = ufun)
+
+    for key in kpars.keys(): xpars[ixpar[key]] = kpars[key]
+    for key in kmask       : xmask[ixpar[key]] = True
+    res   = cfit.minimize(xpars, fun, mask = xmask, method = 'Nelder-Mead')
+
+    dres = {}
+    for key in ixpar.keys(): dres[key] = res[ixpar[key]]
+
+    xfun = np.sum(fun(res))  #/(len(ts) - np.sum(xmask))
+    return dres, xfun
+
+
+def useirqr_mllfit(dates, cases, kpars = {}, kmask = ('beta', 'gamma', 'tr')):
+
+    xpars = [30., 1., 0.3, 3., 5.5, 3e6, 0.01, 0.1]
+    xmask = 8 * [False,]
+    ixpar = {'t0' : 0, 'beta' : 1, 'gamma' : 2, 'tr' : 3, 'ti' : 4,
+             'n'  : 5, 'phi'  : 6, 's1' : 7}
+
+    ts     = np.arange(len(dates))
+    xdata  = ts, cases
+
+    umod = lambda pars : us._useirqr(pars, 'weibull')
+    ufun = lambda pars : us._t0(pars, umod)
+    fun    = us.mle(xdata, ufun = ufun)
+
+    for key in kpars.keys(): xpars[ixpar[key]] = kpars[key]
+    for key in kmask       : xmask[ixpar[key]] = True
+    res   = cfit.minimize(xpars, fun, mask = xmask, method = 'Nelder-Mead')
+
+    dres = {}
+    for key in ixpar.keys(): dres[key] = res[ixpar[key]]
+
+    xmle = np.sum(fun(res))
+    return dres, xmle
+
+
+def useirqr_fmodel(kpars = {}, pars = None):
+
+    xpars = [30., 1., 0.3, 3., 5.5, 3e6, 0.01, 0.1] if pars is None else pars
+    ixpar = {'t0' : 0, 'beta' : 1, 'gamma' : 2, 'tr' : 3, 'ti' : 4,
+             'n'  : 5, 'phi'  : 6, 's1' : 7}
+
+    for key in kpars.keys(): xpars[ixpar[key]] = kpars[key]
+
+    umod = lambda pars : us._useirqr(pars, 'weibull')
+    ufun = lambda pars : us._t0(pars, umod)
+    rfun = us.fmodel(xpars, ufun = ufun)
+    return rfun
+
+
+def useirqm_chi2fit(dates, cases, kpars = {}, kmask = ('beta', 'gamma', 'tr')):
+
+    xpars = [30., 1., 0.3, 3., 5.5, 9., 3e6, 0.01, 0.1]
+    xmask = 9 * [False,]
+    ixpar = {'t0' : 0, 'beta' : 1, 'gamma' : 2, 'tr' : 3, 'ti' : 4,
+             'tm' : 5, 'n'    : 6, 'phi'   : 7, 's1' : 8}
+
+    ts     = np.arange(len(dates))
+    xdata  = ts, cases
+
+    umod = lambda pars : us._useirqm(pars, 'weibull')
+    ufun = lambda pars : us._t0(pars, umod)
+    fun    = us.res(xdata, ufun = ufun)
+
+    for key in kpars.keys(): xpars[ixpar[key]] = kpars[key]
+    for key in kmask       : xmask[ixpar[key]] = True
+    res   = cfit.minimize(xpars, fun, mask = xmask, method = 'Nelder-Mead')
+
+    dres = {}
+    for key in ixpar.keys(): dres[key] = res[ixpar[key]]
+
+    xchi2 = np.sum(fun(res)) #/(len(ts) - np.sum(xmask))
+    return dres, xchi2
+
+
+def useirqm_fmodel(kpars = {}, pars = None):
+
+    xpars = [30., 1., 0.3, 3., 5.5, 9., 3e6, 0.01, 0.1] if pars is None else pars
+    ixpar = {'t0' : 0, 'beta' : 1, 'gamma' : 2, 'tr' : 3, 'ti' : 4,
+             'tm' : 5, 'n'    : 6, 'phi'   : 7, 's1' : 8}
+
+    for key in kpars.keys(): xpars[ixpar[key]] = kpars[key]
+
+    umod = lambda pars : us._useirqm(pars, 'weibull')
+    ufun = lambda pars : us._t0(pars, umod)
+    rfun = us.fmodel(xpars, ufun = ufun)
+    return rfun
+
+
+def useirqt_chi2fit(dates, cases, kpars = {}, kmask = ('beta', 'gamma', 'tr')):
+
+    xpars = [30., 1., 0.3, 3., 5.5, 9., 3e6, 0.01, 0.1]
+    xmask = 9 * [False,]
+    ixpar = {'t0' : 0, 'beta' : 1, 'gamma' : 2, 'tr' : 3, 'ti' : 4,
+             'tm' : 5, 'n'    : 6, 'phi'   : 7, 'tq' : 8}
+
+    ts     = np.arange(len(dates))
+    xdata  = ts, cases
+
+    umod = lambda pars : us._useirq(pars, 'weibull')
+    ufun = lambda pars : us._t0(pars, umod)
+    fun    = us.res(xdata, ufun = ufun)
+
+    for key in kpars.keys(): xpars[ixpar[key]] = kpars[key]
+    for key in kmask       : xmask[ixpar[key]] = True
+    res   = cfit.minimize(xpars, fun, mask = xmask, method = 'Nelder-Mead')
+
+    dres = {}
+    for key in ixpar.keys(): dres[key] = res[ixpar[key]]
+
+    xchi2 = np.sum(fun(res))/(len(ts) - np.sum(xmask))
+    return dres, xchi2
+
+
+def useirqt_fmodel(kpars = {}, pars = None):
+
+    xpars = [30., 1., 0.3, 3., 5.5, 9., 3e6, 0.01, 0.1] if pars is None else pars
+    ixpar = {'t0' : 0, 'beta' : 1, 'gamma' : 2, 'tr' : 3, 'ti' : 4,
+             'tm' : 5, 'n'    : 6, 'phi'   : 7, 'tq' : 8}
+
+    for key in kpars.keys(): xpars[ixpar[key]] = kpars[key]
+
+    umod = lambda pars : us._useirq(pars, 'weibull')
+    ufun = lambda pars : us._t0(pars, umod)
+    rfun = us.fmodel(xpars, ufun = ufun)
+    return rfun
+
+
+
+def plot_data_model(xs, ys, fmodel, yerr = None, dates = True):
+    # TODO: check if cs is dates or not
+
+    yerr = yerr if yerr is not None else np.maximum(np.sqrt(ys), 2.4)
+
+    figure()
+    plt.errorbar(xs, ys, yerr = yerr, color = 'black',
+                ls = '', marker = 'o', ms = 4, label = 'data');
+    ts = xs if dates is False else np.arange(len(xs))
+    plt.plot(xs, fmodel(ts), ls = '--', label = 'model')
+    plt.grid(); plt.legend();
+    if (dates): formatter(plt.gca())
+    return
+
+
+def plot_fit_data(xdata, pars, ufun, ax = None):
+
+    if (ax is None):  plt.figure(figsize = (6, 5))
+
+    xs, ys = xdata
+
+    plt.errorbar(xs, ys, yerr = np.sqrt(ys), color = 'black',
+                ls = '', marker = 'o', ms = 4, label = 'data');
+
+    fun = us.fmodel(pars, ufun = ufun)
+    plt.plot(xs, fun(xs), ls = '--', label = 'model')
+
+    plt.grid(); plt.legend();
+    return
+
 #
 # def data_ca(df, name, sel = None):
 #
