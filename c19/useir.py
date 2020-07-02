@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import imshow
 import matplotlib.dates as mdates
 
+#--- useir internal utilities
+
 def ftheta(t0):
     def _fun(t):
         return np.array(t == t0, dtype = float)
@@ -33,20 +35,6 @@ def fgamma(ti, ndays = 200):
     ts     = np.arange(ndays)
     norma  = np.sum(xp(ts))
     return lambda x: xp(x)/norma
-
-# def funiform(ti, dti = 2, ndays = 200):
-#     if (dti == 0 or dti > ti): dti = ti
-#     xp     = stats.uniform(ti - dti, ti + dti).pdf
-#     ts     = np.arange(ndays)
-#     norma  = np.sum(xp(ts))
-#     return lambda x: xp(x)/norma
-#
-# def ftriang(ti, dti = 2, ndays = 200):
-#     if (dti == 0 or dti > ti): dti = ti
-#     xp     = stats.triang(0.5, ti - dti, ti + dti).pdf
-#     ts     = np.arange(ndays)
-#     norma  = np.sum(xp(ts))
-#     return lambda x: xp(x)/norma
 
 def funiform(ti, dti = 0, ndays = 200):
     if (dti <= 0 or dti > ti): dti = ti
@@ -87,8 +75,26 @@ def uV(vals, ts, rho):
     v  = np.sum(vals * rs)
     return v
 
+def mdeltas(v):
+    """ return Delta V of the V -vector
+    """
+    m     = np.copy(v)
+    m[1:] =  v[1:] - v[:-1]
+    return m
+
+def mrvs(dv, umin = 1e-5):
+    """ return randon variable of DV vector with poisson mean DV
+    """
+    m   = stats.poisson(np.maximum(np.abs(dv), umin)).rvs()
+    m[dv < 0] = -1 * m[dv < 0]
+    return m
+
+#--- useir models
 
 def uSEIR(n, r0, ti, tr, tm, phim, ndays = 200, rho = 'theta', S0 = None, D0 = None):
+
+    """ uSEIR model
+    """
 
     def uDE(s, i, beta):
         return beta * s * i
@@ -133,8 +139,11 @@ def uSEIR(n, r0, ti, tr, tm, phim, ndays = 200, rho = 'theta', S0 = None, D0 = N
     return (S, E, I, R, M), (DE, DI0, DR, DM)
 
 
-def uSEIR_Rvar(n, r0, ti, tr, tm, phim, s1, r1, ndays = 200,
+def uSEIRq(n, r0, ti, tr, tm, phim, s1, r1, ndays = 200,
                rho = 'theta', S0 = None, D0 = None):
+    """ uSEIR quenched model after a fraction S1 of supsected infividuals
+              infection factor r0 -> r1 after s1
+    """
 
     def uDE(s, i, beta):
         return beta * s * i
@@ -179,181 +188,103 @@ def uSEIR_Rvar(n, r0, ti, tr, tm, phim, s1, r1, ndays = 200,
     return (S, E, I, R, M), (DE, DI0, DR, DM)
 
 
-def uSEIRq(n, r0, ti, tr, tm, phim, t1, r1, ndays = 200,
-               rho = 'theta', S0 = None, D0 = None):
+# def uSEIRq(n, r0, ti, tr, tm, phim, t1, r1, ndays = 200,
+#                rho = 'theta', S0 = None, D0 = None):
+#
+#     def uDE(s, i, beta):
+#         return beta * s * i
+#
+#     ts = np.arange(ndays)
+#     phir   = 1 - phim
+#     beta  = (r0/tr)
+#
+#     S, DE, DI0    = np.zeros(ndays), np.zeros(ndays), np.zeros(ndays)
+#     E, R, M , I   = np.zeros(ndays), np.zeros(ndays), np.zeros(ndays), np.zeros(ndays)
+#
+#     if (S0 is not None): print('S0 : ', S0)
+#     if (D0 is not None): print('D0 : ', D0)
+#
+#     S[0], DE[0], DI0[0] = (n, 1, 0) if S0 is None else S0 #(S0[0], S0[1], S0[2])
+#     R[0], M[0] , I[0]   = (0, 0, 0) if D0 is None else D0 #D0[0], D0[1], D0[2]
+#
+#     _frho  = frho(rho)
+#
+#     #print(str(_frho).split()[1])
+#     frhoi, frhor, frhom, = _frho(ti), _frho(tr), _frho(tm)
+#
+#     for i in range(1, ndays):
+#         sp, ip = S[i-1], I[i-1]
+#         #print('Sp, Ip', sp, ip)
+#         if (i >= t1): beta = r1/tr
+#         de     = uDE(sp, ip, beta/n)
+#         DE [i] = de
+#         di0    =        uV(DE [:i+1], ts[:i+1], frhoi)
+#         DI0[i] = di0
+#         dr     = phir * uV(DI0[:i+1], ts[:i+1], frhor)
+#         dm     = phim * uV(DI0[:i+1], ts[:i+1], frhom)
+#         S [i]  = S[i-1] - de
+#         R [i]  = R[i-1] + dr
+#         M [i]  = M[i-1] + dm
+#         E [i]  = E[i-1] + de  - di0
+#         I [i]  = I[i-1] + di0 - dr - dm
+#
+#     DR  = mdeltas(R)
+#     DM  = mdeltas(M)
+#
+#     return (S, E, I, R, M), (DE, DI0, DR, DM)
+#
+# # Data generation
 
-    def uDE(s, i, beta):
-        return beta * s * i
+#def mrvs(dv, umin = 1e-5, error = True):
+#    m   = stats.poisson(np.maximum(np.abs(dv), umin)).rvs()
+#    m[dv < 0] = -1 * m[dv < 0]
+#    return m
 
-    ts = np.arange(ndays)
-    phir   = 1 - phim
-    beta  = (r0/tr)
+# def errors(ds, d0 = 2.4):
+#     return np.sqrt(np.maximum(ds, d0))
 
-    S, DE, DI0    = np.zeros(ndays), np.zeros(ndays), np.zeros(ndays)
-    E, R, M , I   = np.zeros(ndays), np.zeros(ndays), np.zeros(ndays), np.zeros(ndays)
+# def useir_rvdata(DI0, DR, DM):
+#     """ Generate randon data from uSEIR (new infection, recovered and death)
+#     """
+#
+#     dios  = mrvs(DI0)
+#     drs   = mrvs(DR)
+#     dms   = mrvs(DM)
+#
+#     return (dios, drs, dms)
+#
+    #-----
 
-    if (S0 is not None): print('S0 : ', S0)
-    if (D0 is not None): print('D0 : ', D0)
-
-    S[0], DE[0], DI0[0] = (n, 1, 0) if S0 is None else S0 #(S0[0], S0[1], S0[2])
-    R[0], M[0] , I[0]   = (0, 0, 0) if D0 is None else D0 #D0[0], D0[1], D0[2]
-
-    _frho  = frho(rho)
-
-    #print(str(_frho).split()[1])
-    frhoi, frhor, frhom, = _frho(ti), _frho(tr), _frho(tm)
-
-    for i in range(1, ndays):
-        sp, ip = S[i-1], I[i-1]
-        #print('Sp, Ip', sp, ip)
-        if (i >= t1): beta = r1/tr
-        de     = uDE(sp, ip, beta/n)
-        DE [i] = de
-        di0    =        uV(DE [:i+1], ts[:i+1], frhoi)
-        DI0[i] = di0
-        dr     = phir * uV(DI0[:i+1], ts[:i+1], frhor)
-        dm     = phim * uV(DI0[:i+1], ts[:i+1], frhom)
-        S [i]  = S[i-1] - de
-        R [i]  = R[i-1] + dr
-        M [i]  = M[i-1] + dm
-        E [i]  = E[i-1] + de  - di0
-        I [i]  = I[i-1] + di0 - dr - dm
-
-    DR  = mdeltas(R)
-    DM  = mdeltas(M)
-
-    return (S, E, I, R, M), (DE, DI0, DR, DM)
-
-
-def plt_uSEIR(ts, seir, dseir, title = '', yscale = 'log'):
-    S, E, I, R, M   = seir
-    DE, DI0, DR, DM = dseir
-
-    plt.figure(figsize = (8, 6))
-    plt.plot(ts, S, label = 'susceptible')
-    plt.plot(ts, E, label = 'exposed')
-    plt.plot(ts, I, label = 'infected')
-    plt.plot(ts, R, label = 'recovered')
-    plt.plot(ts, M, label = 'death')
-    plt.ylim((1, 1.5 * np.max(S)))
-    plt.grid(which = 'both'); plt.legend(); plt.title(title); plt.yscale(yscale)
-
-    plt.figure(figsize = (8, 6))
-    plt.plot(ts, DE , label = r'$\Delta E$')
-    plt.plot(ts, DI0, label = r'$\Delta I_0$')
-    plt.plot(ts, DM, label = r'$\Delta M$')
-    plt.plot(ts, DR, label = r'$\Delta R$')
-    plt.ylim((1., 1.5 * np.max(DI0)))
-    plt.grid(which = 'both'); plt.legend(); plt.title(title); plt.yscale(yscale)
-
-    return
-
-# Data preparation
-
-def mdeltas(v):
-    m     = np.copy(v)
-    m[1:] =  v[1:] - v[:-1]
-    return m
-
-def mrvs(dv, umin = 1e-5, error = True):
-    m   = stats.poisson(np.maximum(np.abs(dv), umin)).rvs()
-    m[dv < 0] = -1 * m[dv < 0]
-    return m
-
-def errors(ds, d0 = 2.4):
-    return np.sqrt(np.maximum(ds, d0))
-
-def meas(dis, drs, dms, fi = 1., vmin = 2.4):
-    def _um(di, dr, dm):
-        u = np.identity(3)
-        u[0, 0] = fi * np.maximum(np.abs(di), vmin)
-        u[1, 1] = fi * np.maximum(np.abs(dr), vmin)
-        u[2, 2] = fi * np.maximum(np.abs(dm), vmin)
-        return u
-
-    ms  = [npa((di, dr, dm)) for di, dr, dm in zip(dis, drs, dms)]
-    ums = [_um( di, dr, dm)  for di, dr, dm in zip(dis, drs, dms)]
-    return ms, ums
+# def meas(dis, drs, dms, fi = 1., vmin = 2.4):
+#     def _um(di, dr, dm):
+#         u = np.identity(3)
+#         u[0, 0] = fi * np.maximum(np.abs(di), vmin)
+#         u[1, 1] = fi * np.maximum(np.abs(dr), vmin)
+#         u[2, 2] = fi * np.maximum(np.abs(dm), vmin)
+#         return u
+#
+#     ms  = [npa((di, dr, dm)) for di, dr, dm in zip(dis, drs, dms)]
+#     ums = [_um( di, dr, dm)  for di, dr, dm in zip(dis, drs, dms)]
+#     return ms, ums
 
 
 
-
-def plt_meas(ts, ms, ums, yscale = 'log'):
-
-    def _plot(ts, ris, rrs, rms, title ):
-        plt.figure(figsize = (8, 6))
-        plt.plot(ts, ris , ls = '--', marker = 'o', label = 'infected')
-        plt.plot(ts, rrs , ls = '--', marker = 'o', label = 'recovered')
-        plt.plot(ts, rms , ls = '--', marker = 'o', label = 'death')
-        plt.grid(which = 'both'); plt.yscale(yscale); plt.legend()
-        plt.xlabel('days'); plt.ylabel('individuals')
-        return
-
-    ris = [xi[0] for xi in ms]
-    rrs = [xi[1] for xi in ms]
-    rms = [xi[2] for xi in ms]
-    _plot(ts, ris, rrs, rms, 'measurements')
-
-    ris = [np.sqrt(xi[0, 0]) for xi in ums]
-    rrs = [np.sqrt(xi[1, 1]) for xi in ums]
-    rms = [np.sqrt(xi[2, 2]) for xi in ums]
-    _plot(ts, ris, rrs, rms, 'uncertainties')
-    return
-
-# Data generation
-
-def useir_rvdata(DI0, DR, DM):
-
-    dios  = mrvs(DI0)
-    drs   = mrvs(DR)
-    dms   = mrvs(DM)
-
-    return (dios, drs, dms)
-
-def plt_useir_rvdata(ts, DS, ds):
-
-    DI0 , DR, DM   = DS
-    dios, drs, dms = ds
-
-    plt.figure(figsize = (8, 6))
-    plt.plot(ts[:], DI0, label = 'infected')
-    plt.plot(ts[:], DR , label = 'recovered')
-    plt.plot(ts[:], DM , label = 'death')
-
-    plt.plot(ts[:], dios, label = 'infected', ls = '', marker = 'o')
-    plt.plot(ts[:], drs , label = 'recovered', ls = '', marker = 'o')
-    plt.plot(ts[:], dms , label = 'death'    , ls = '', marker = 'o')
-    plt.grid(which = 'both'); plt.legend();
-    return
 
 
 # Projection hmatrix
 
+#--- uSEIR KF utilites
+
 def ninfecting(ts, dios, rhor):
+    """ computes the number of infecting individuals given the new infections, dios,
+    and the pdf of infected removal, rhor. The ts is the arrat of times to consider
+    return the number of infected and the delta of removals
+    """
     nsize = len(ts)
     drs = npa([uV(dios[:i+1], ts[:i+1], rhor) for i in range(nsize)])
     dis = dios - drs
     nis = npa([np.sum(dis[:i+1]) for i in range(nsize)])
     return nis, drs
-
-def betas(ts, xdios, rhor, rhoi):
-    xnis, xxds = ninfecting(ts, xdios, rhor)
-    nes   = npa([uV(xnis[0:i], ts[0:i], rhoi) for i in range(len(ts))])
-    betas = np.zeros(len(xdios))
-    xsel = nes > 0
-    betas[xsel] = xdios[xsel]/nes[xsel]
-    return betas
-
-def nis_(ts, dios, rhor, rhom, phim):
-    nsize = len(ts)
-    drs = npa([uV(dios[:i+1], ts[:i+1], rhor) for i in range(nsize)])
-    #drs = npa([0.,] + drs)
-    dms = npa([uV(dios[:i+1], ts[:i+1], rhom) for i in range(nsize)])
-    #dms = npa([0.,] + dms)
-    #print(len(dios), len(drs), len(dms))
-    dis = dios - (1-phim) * drs - phim * dms
-    nis = npa([np.sum(dis[:i+1]) for i in range(nsize)])
-    return nis, (dis, (1- phim) * drs, (phim)* dms)
 
 def fhmatrix(frhoi, frhor, frhom):
 
@@ -373,6 +304,52 @@ def fhmatrix(frhoi, frhor, frhom):
     return _fun
 
 
+def hmatrices(ts, dios, nis, frhoi, frhor, frhom):
+    ndays = len(dios)
+    fh   = fhmatrix(frhoi, frhor, frhom)
+    hs   = [fh(dios[:i+1], nis[:i+1], ts[:i+1]) for i in range(0, ndays)]
+    #hs   = [fh(dios[:i], nis[:i], ts[:i]) for i in range(0, ndays)]
+    #hs = [hs[0],] + hs
+    #print(ndays, len(hs))
+    return hs
+
+# def betas(ts, xdios, rhor, rhoi):
+#     xnis, xxds = ninfecting(ts, xdios, rhor)
+#     nes   = npa([uV(xnis[0:i], ts[0:i], rhoi) for i in range(len(ts))])
+#     betas = np.zeros(len(xdios))
+#     xsel = nes > 0
+#     betas[xsel] = xdios[xsel]/nes[xsel]
+#     return betas
+#
+# def nis_(ts, dios, rhor, rhom, phim):
+#     nsize = len(ts)
+#     drs = npa([uV(dios[:i+1], ts[:i+1], rhor) for i in range(nsize)])
+#     #drs = npa([0.,] + drs)
+#     dms = npa([uV(dios[:i+1], ts[:i+1], rhom) for i in range(nsize)])
+#     #dms = npa([0.,] + dms)
+#     #print(len(dios), len(drs), len(dms))
+#     dis = dios - (1-phim) * drs - phim * dms
+#     nis = npa([np.sum(dis[:i+1]) for i in range(nsize)])
+#     return nis, (dis, (1- phim) * drs, (phim)* dms)
+
+# def fhmatrix(frhoi, frhor, frhom):
+#
+#     size = 3
+#
+#     def _fun(dis, nis, ts):
+#
+#         #nis, _ = nis_(dis, ts, frhor, frhom, phim)
+#         nsize = len(dis)
+#         #fis   = sis[:nsize]
+#         h = np.zeros(size * size).reshape(size, size)
+#         h[0, 0] = uV(nis[:-1], ts[:-1], frhoi)
+#         #h[0, 0] = uV(nis[:], ts[:], frhoi)
+#         h[1, 1] = uV(dis[:], ts[:], frhor)
+#         h[2, 2] = uV(dis[:], ts[:], frhom)
+#         return h
+#     return _fun
+
+
 # def fhmatrix(frhoi, frhor, frhom):
 #
 #     size = 3
@@ -389,49 +366,49 @@ def fhmatrix(frhoi, frhor, frhom):
 #     return _fun
 
 
-def hmatrices(ts, dios, nis, frhoi, frhor, frhom):
-    ndays = len(dios)
-    fh   = fhmatrix(frhoi, frhor, frhom)
-    hs   = [fh(dios[:i+1], nis[:i+1], ts[:i+1]) for i in range(0, ndays)]
-    #hs   = [fh(dios[:i], nis[:i], ts[:i]) for i in range(0, ndays)]
-    #hs = [hs[0],] + hs
-    #print(ndays, len(hs))
-    return hs
+# def hmatrices(ts, dios, nis, frhoi, frhor, frhom):
+#     ndays = len(dios)
+#     fh   = fhmatrix(frhoi, frhor, frhom)
+#     hs   = [fh(dios[:i+1], nis[:i+1], ts[:i+1]) for i in range(0, ndays)]
+#     #hs   = [fh(dios[:i], nis[:i], ts[:i]) for i in range(0, ndays)]
+#     #hs = [hs[0],] + hs
+#     #print(ndays, len(hs))
+#     return hs
+#
+# def plt_hmatrices(ts, hs):
+#
+#     plt.figure(figsize = (8, 6))
+#     plt.plot([hi[0, 0] for hi in hs], label = 'infected')
+#     plt.plot([hi[1, 1] for hi in hs], label = 'recovered')
+#     plt.plot([hi[2, 2] for hi in hs], label = 'death')
+#     plt.legend(); plt.grid(); plt.yscale('log'), plt.title('H-matrix elements')
+#     return
+#
+# def plt_hmatrices2(ts, hs, ms):
+#
+#     hs = [npa([hi[i, i] for hi in hs]) for i in range(3)]
+#     xs = [npa([mi[i]    for mi in ms]) for i in range(3)]
+#
+#     plt.figure(figsize = (8, 6))
+#     plt.plot(hs[0], label = 'infected')
+#     plt.plot(xs[0], ls = '', marker = 'o', label = 'infected')
+#     plt.plot(hs[1], label = 'recovered')
+#     plt.plot(xs[1], ls = '', marker = 'o', label = 'recovered')
+#     plt.plot(hs[2], label = 'death')
+#     plt.plot(xs[2], ls = '', marker = 'o', label = 'death')
+#     plt.legend(); plt.grid(); plt.yscale('log');
+#     plt.title('H-matrix elements')
+#
+#     plt.figure(figsize = (8, 6))
+#     plt.plot(xs[0]/np.maximum(hs[0], 1.), label = 'infected')
+#     plt.plot(xs[1]/np.maximum(hs[1], 1.), label = 'recovered')
+#     plt.plot(xs[2]/np.maximum(hs[2], 1.), label = 'death')
+#     plt.legend(); plt.grid(); plt.yscale('log');
+#     plt.title('meas/prediction ratio');
+#
+#     return
 
-def plt_hmatrices(ts, hs):
-
-    plt.figure(figsize = (8, 6))
-    plt.plot([hi[0, 0] for hi in hs], label = 'infected')
-    plt.plot([hi[1, 1] for hi in hs], label = 'recovered')
-    plt.plot([hi[2, 2] for hi in hs], label = 'death')
-    plt.legend(); plt.grid(); plt.yscale('log'), plt.title('H-matrix elements')
-    return
-
-def plt_hmatrices2(ts, hs, ms):
-
-    hs = [npa([hi[i, i] for hi in hs]) for i in range(3)]
-    xs = [npa([mi[i]    for mi in ms]) for i in range(3)]
-
-    plt.figure(figsize = (8, 6))
-    plt.plot(hs[0], label = 'infected')
-    plt.plot(xs[0], ls = '', marker = 'o', label = 'infected')
-    plt.plot(hs[1], label = 'recovered')
-    plt.plot(xs[1], ls = '', marker = 'o', label = 'recovered')
-    plt.plot(hs[2], label = 'death')
-    plt.plot(xs[2], ls = '', marker = 'o', label = 'death')
-    plt.legend(); plt.grid(); plt.yscale('log');
-    plt.title('H-matrix elements')
-
-    plt.figure(figsize = (8, 6))
-    plt.plot(xs[0]/np.maximum(hs[0], 1.), label = 'infected')
-    plt.plot(xs[1]/np.maximum(hs[1], 1.), label = 'recovered')
-    plt.plot(xs[2]/np.maximum(hs[2], 1.), label = 'death')
-    plt.legend(); plt.grid(); plt.yscale('log');
-    plt.title('meas/prediction ratio');
-
-    return
-
-#---- KF
+#---- uSEIR KF main elements
 
 def kfmeas(ds, uds = (None, None, None), vmin = 2.4, scale = False):
     dios, drs, dms = ds
@@ -483,8 +460,8 @@ def useir_kfs(ds, times, q0 = 0., uds = None, x0 = None, ux0 = None,
 
     fs = [np.identity(3)      for i in range(nsize)]
 
-    if (len(q0) != nsize):
-        q0 = [q0 for i in range(nsize)]
+    #if (len(q0) != nsize):
+    q0 = [q0 for i in range(nsize)]
     qs = [qi * np.identity(3) for qi in q0]
 
     ks = [kf.KFnode(mi, umi, hi, fi, qi) for mi, umi, hi, fi, qi in zip(ms, ums, hs, fs, qs)]
@@ -499,19 +476,6 @@ def useir_kfs(ds, times, q0 = 0., uds = None, x0 = None, ux0 = None,
 
     return (xs, uxs), (xm, uxm)
 
-def plot_kfs(xs, uxs, labels = (r'$\beta$', r'$\Phi_R$', r'$\Phi_M$')):
-    nsize = len(xs)
-    msize = len(xs[0])
-    ts    = np.arange(nsize)
-
-    plt.figure(figsize = (8, 6))
-    for k in range(msize):
-        rs  = npa([xi[k]              for xi  in xs])
-        urs = npa([np.sqrt(uxi[k, k]) for uxi in uxs])
-        #print(rs)
-        plt.errorbar(ts, rs, yerr = urs, ls = '', marker = 'o', ms = 4,label = labels[k])
-    plt.grid(which = 'both');
-    plt.legend()
 
 #------
 #     KFS with data
@@ -593,20 +557,20 @@ def plt_useir_kf(ts, xs, uxs, res):
 
 fname = 'weibull'
 
-def _useirq(pars, fname = 'weibull'):
-
-    beta, gamma, tr, ti, tm, n, phim, t1 = pars
-
-    #factor = 0.041
-    r0, r1   = beta * tr, gamma * tr
-    tm       = tr
-    # TODO pass the rest of arguments
-
-    ndays           = 200
-    srho            = fname
-
-    ns, ds = uSEIRq(n, r0, ti, tr, tm, phim, t1, r1, ndays = ndays, rho = srho)
-    return ds[3]
+# def _useirq(pars, fname = 'weibull'):
+#
+#     beta, gamma, tr, ti, tm, n, phim, t1 = pars
+#
+#     #factor = 0.041
+#     r0, r1   = beta * tr, gamma * tr
+#     tm       = tr
+#     # TODO pass the rest of arguments
+#
+#     ndays           = 200
+#     srho            = fname
+#
+#     ns, ds = uSEIRq(n, r0, ti, tr, tm, phim, t1, r1, ndays = ndays, rho = srho)
+#     return ds[3]
 
 
 def _useirext(pars, fname = 'gamma'):
