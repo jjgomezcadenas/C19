@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import imshow
 import matplotlib.dates as mdates
 
+import c19.useir as us
+import c19.cfit  as cfit
+
 npa    = np.array
 
 def plt_uSEIR(ts, seir, dseir, title = '', yscale = 'log', norma = False):
@@ -55,6 +58,9 @@ def plt_uSEIR(ts, seir, dseir, title = '', yscale = 'log', norma = False):
 #     plt.plot(ts[:], dms , label = 'death'    , ls = '', marker = 'o')
 #     plt.grid(which = 'both'); plt.legend();
 #     return
+
+
+#---- KF plots
 
 def plt_kfmeas(ts, ms, ums, yscale = 'log'):
 
@@ -180,3 +186,52 @@ def plt_betaq_time_evolution(xss, td, beta0, beta1, sn, s1):
     plt.grid(); plt.ylim((0., 0.8)); plt.legend();
 
     return betas, ubetas, rr
+
+
+#---- Fit plots
+
+def plt_data_model(xs, ys, pars, ufun, yerr = None):
+
+    f, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw = {'height_ratios': [6, 1]})
+    #plt.subplot(2, 1, 1)
+    yerr   = np.sqrt(ys) if yerr is None else yerr
+    ax1.errorbar(xs, ys, yerr = np.sqrt(ys), ls = '', label = 'data',
+                 marker = 'o', ms = 4, c = 'black');
+    fun    = us.fmodel(pars, ufun)
+    ax1.plot(xs, fun(xs), ls = '--', c = 'blue', label = 'model')
+    ax1.grid(); ax1.legend();
+
+    #plt.subplot(2, 1, 2)
+    fres  = us.res(xs, ys, ufun, sqr = False)
+    #ax1 = plt.twinx()
+    ax2.bar(xs, fres(pars));
+    #ax2.set_ylim((-5., 5.));
+    ax2.set_ylabel(r"$\sigma$");
+
+    f.tight_layout()
+    return
+
+def plt_ffit_scan(fun, pars, vals0, vals1,
+                  index0 = 0, index1 = 1,
+                  name0 = '', name1 = '', title = '', levels = 20):
+
+    xvals = cfit.scan(pars, fun, index0, vals0)
+    plt.figure(figsize = (6 * 2, 5 * 2))
+    plt.subplot(2, 2, 3);
+    plt.plot(vals0, xvals - np.min(xvals));
+    plt.xlabel(name0); plt.title(title); plt.grid();
+
+    xvals = cfit.scan(pars, fun, index1, vals1)
+    plt.subplot(2, 2, 2)
+    plt.plot(vals1, xvals - np.min(xvals));
+    plt.xlabel(name1); plt.title(title); plt.grid();
+
+    xvals = cfit.scan2d(pars, fun, index0, vals0, index1, vals1)
+    xx, yy = np.meshgrid(vals0, vals1)
+    zz     = xvals - np.min(xvals)
+    plt.subplot(2, 2, 1)
+    cc = plt.contourf(xx, yy, zz, alpha = 0.5, levels = levels);
+    x0, y0 = pars[index0], pars[index1]
+    plt.plot(x0, y0, marker = '*', color = 'black', ms = 10);
+    plt.xlabel(name0); plt.ylabel(name1); plt.title(title)
+    plt.colorbar(cc);
