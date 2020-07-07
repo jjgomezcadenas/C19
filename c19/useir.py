@@ -481,48 +481,48 @@ def useir_kfs(ds, times, q0 = 0., uds = None, x0 = None, ux0 = None,
 #     KFS with data
 #-------
 
-
-def useir_kfs_comomo(dates, cases, ucases, times,
-                    dates_blind = None, q0 = 1.):
-
-    nsize          = len(dates)
-    #t0             = int(tm)
-    #dios           = np.zeros(nsize)
-    #dios[:-t0]     = cases[t0:]
-    ti, td, tm     = times
-    ds             = (cases, cases, cases)
-    uds            = (ucases, ucases, ucases)
-
-    q0      = q0 * np.ones(nsize)
-
-    dates_blind = ('2030-01-01', '2030-12-31') if dates_blind is None else dates_blind
-    date0, date1 = dates_blind
-    sel    = (dates >= np.datetime64(date0)) & (dates <= np.datetime64(date1))
-    q0[sel] = 1.
-
-    kfres = useir_kfs(ds, times, uds = uds, q0 = q0, scale = True)
-
-    def _rs(xs, uxs):
-        rs  = td * npa([xi[0]             for xi in xs])
-        urs = td * npa([np.sqrt(xi[0, 0]) for xi in uxs])
-        return rs, urs
-
-    return _rs(*kfres[0]), _rs(*kfres[1])
-
-#-------
-
-def useir_kf(ms, ums, hs, x0, ux0, qs = None):
-    ndays = len(ms)
-    if (qs is None):
-        qs    = [np.identity(3) * 0. for i in range(ndays)]
-    xs, uxs, res = kf._kfs(ms, ums, hs, x0, ux0, qs = qs)
-    return xs, uxs, res
 #
-# def plt_useir_kf(ts, xs, uxs, res):
+# def useir_kfs_comomo(dates, cases, ucases, times,
+#                     dates_blind = None, q0 = 1.):
 #
-#     def _plot(rs, pr, pm, title):
-#         plt.figure(figsize = (8, 6))
-#         plt.title(title)
+#     nsize          = len(dates)
+#     #t0             = int(tm)
+#     #dios           = np.zeros(nsize)
+#     #dios[:-t0]     = cases[t0:]
+#     ti, td, tm     = times
+#     ds             = (cases, cases, cases)
+#     uds            = (ucases, ucases, ucases)
+#
+#     q0      = q0 * np.ones(nsize)
+#
+#     dates_blind = ('2030-01-01', '2030-12-31') if dates_blind is None else dates_blind
+#     date0, date1 = dates_blind
+#     sel    = (dates >= np.datetime64(date0)) & (dates <= np.datetime64(date1))
+#     q0[sel] = 1.
+#
+#     kfres = useir_kfs(ds, times, uds = uds, q0 = q0, scale = True)
+#
+#     def _rs(xs, uxs):
+#         rs  = td * npa([xi[0]             for xi in xs])
+#         urs = td * npa([np.sqrt(xi[0, 0]) for xi in uxs])
+#         return rs, urs
+#
+#     return _rs(*kfres[0]), _rs(*kfres[1])
+#
+# #-------
+#
+# def useir_kf(ms, ums, hs, x0, ux0, qs = None):
+#     ndays = len(ms)
+#     if (qs is None):
+#         qs    = [np.identity(3) * 0. for i in range(ndays)]
+#     xs, uxs, res = kf._kfs(ms, ums, hs, x0, ux0, qs = qs)
+#     return xs, uxs, res
+# #
+# # def plt_useir_kf(ts, xs, uxs, res):
+# #
+# #     def _plot(rs, pr, pm, title):
+# #         plt.figure(figsize = (8, 6))
+# #         plt.title(title)
 #         plt.grid();
 #         plt.plot(ts, rs, c = 'black', label = r'$\beta$')
 #         plt.ylabel('R')
@@ -645,6 +645,15 @@ def _t0(pars, ufun):
     dms[-dt0:] = 0.
     return dms
 
+def _t0(pars, ufun):
+    # this deplaces the absolute time of the pandemic
+    # TODO : make an interpolation of the pandemic and move dt0 - float not itn!
+    dt0, tpars = pars[0], pars[1:]
+    dms = ufun(tpars)
+    ts  = np.arange(len(dms))
+    dmsp = np.interp(ts + dt0, ts, dms)
+    return dmsp
+
 def dms_useir(pars, ndays = ndays, rho = rho):
 
     beta, ti, tr, tm, n, phim = pars
@@ -680,27 +689,13 @@ def dms_t0useirq(pars, ndays = ndays, rho = rho):
 def dms_fit(ts, cases, ufun, pars, pmask,
             ucases = None, ffit = 'chi2'):
 
-#xpars = [30., 1., 0.3, 3., 5.5, 3e6, 0.01, 0.1]
-#xmask = 8 * [False,]
-#ixpar = {'t0' : 0, 'beta' : 1, 'gamma' : 2, 'tr' : 3, 'ti' : 4,
-#         'n'  : 5, 'phi'  : 6, 's1' : 7}
-
-#ts     = np.arange(len(dates))
-#xdata  = ts, cases
-
     _fun   = ll if ffit == 'mll' else res
     fun    = _fun(ts, cases, ufun)
 
-    #for key in kpars.keys(): xpars[ixpar[key]] = kpars[key]
-#for key in kmask       : xmask[ixpar[key]] = True
     xres   = cfit.minimize(pars, fun, mask = pmask, method = 'Nelder-Mead')
-    #dres = {}
-    #for key in ixpar.keys(): dres[key] = res[ixpar[key]]
-    #xfun = fun(xres)  #/(len(ts) - np.sum(xmask))
 
     xfun = lambda pars: np.sum(fun(pars))
     return xres, xfun(xres), xfun
-
 
 
 
