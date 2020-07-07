@@ -679,6 +679,21 @@ def dms_useirq(pars, fname = 'weibull'):
     ns, ds = uSEIRq(n, r0, ti, tr, tm, phim, s1, r1, ndays = ndays, rho = rho)
     return ds[3]
 
+
+def dms_useirq_tr(pars, fname = 'gamma'):
+    """ uSEIRq -quenched- it froces tm = tr
+    """
+
+    beta, gamma, ti, tr, n, phim, s1 = pars
+
+    r0, r1   = beta * tr, gamma * tr
+    tm       = tr
+    # TODO pass the rest of arguments
+
+    ns, ds = uSEIR_Rvar(n, r0, ti, tr, tm, phim, s1, r1, ndays = ndays, rho = rho)
+    return ds[3]
+
+
 def dms_t0useir(pars, ndays = ndays, rho = rho):
     return _t0(pars, dms_useir)
 
@@ -686,17 +701,44 @@ def dms_t0useir(pars, ndays = ndays, rho = rho):
 def dms_t0useirq(pars, ndays = ndays, rho = rho):
     return _t0(pars, dms_useirq)
 
+
+def dms_t0useirq_tr(pars, ndays = ndays, rho = rho):
+    return _t0(pars, dms_useirq_tr)
+
+
+def _fname(f):
+    return str(f).split()[1]
+
+pars_names = {}
+pars_names[_fname(dms_t0useir) ]    = ('t0', 'beta', 'ti', 'tr', 'tm', 'n', 'phim')
+pars_names[_fname(dms_t0useirq)]    = ('t0', 'beta', 'gamma', 'ti', 'tr', 'tm', 'n', 'phim', 's1')
+pars_names[_fname(dms_t0useirq_tr)] = ('t0', 'beta', 'gamma', 'ti', 'tr', 'n', 'phim', 's1')
+
+
 def dms_fit(ts, cases, ufun, pars, pmask,
             ucases = None, ffit = 'chi2'):
 
-    _fun   = ll if ffit == 'mll' else res
-    fun    = _fun(ts, cases, ufun)
+    isdict = (type(pars) == dict)
 
-    xres   = cfit.minimize(pars, fun, mask = pmask, method = 'Nelder-Mead')
+    if (isdict):
+        dicres = True
+        names = pars_names[_fname(ufun)]
+        pars  = [pars[name]     for name in names]
+        pmask = [name in pmasks for name in names]
 
+    _fun = ll if ffit == 'mll' else res
+    fun  = _fun(ts, cases, ufun)
+
+    xres = cfit.minimize(pars, fun, mask = pmask, method = 'Nelder-Mead')
     xfun = lambda pars: np.sum(fun(pars))
-    return xres, xfun(xres), xfun
 
+    if (isdict):
+        names = pars_names[_fname(ufun)]
+        xxres = {}
+        for i, name in enumerate(names): xxres[name] = xres[i]
+        xres = xxres
+
+    return xres, xfun(xres), xfun
 
 
 #
