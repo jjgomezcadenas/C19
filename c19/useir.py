@@ -1,4 +1,6 @@
 
+from copy import copy
+
 import numpy as np
 import pandas as pd
 
@@ -574,6 +576,13 @@ def rvs(pars, ufun, size = 0):
     res    = times, (xs[:-1], ys)
     return res
 
+def fcases(pars, ufun):
+    dms  = ufun(pars)
+    ts   = 1. * np.arange(len(dms))
+    def _fun(ti):
+        return np.interp(ti, ts, dms)
+    return _fun
+
 def fmodel(pars, ufun):
     dms    = ufun(pars)
     rv     = _rv(dms)
@@ -581,6 +590,26 @@ def fmodel(pars, ufun):
     def _fun(x):
         return ni * rv.pdf(x)
     return _fun
+
+# def ll(xs, ys, ufun, pars = None):
+#
+#     # data is a table (days, individuals)
+#     #xs, ys = data
+#     nx     = len(xs)
+#     n0     = np.sum(ys)
+#
+#     def _fun(pars):
+#         dms = ufun(pars)
+#         rv  = _rv(dms)
+#         ll  = npa([-2 * yi * rv.logpdf(xi) for xi, yi in zip (xs, ys)])
+#         ll  = np.nan_to_num(ll)
+#         ni  = np.sum(dms)
+#         lp  = -2 * stats.poisson(ni).logpmf(n0) / nx
+#         lp = 0.
+#         return ll + lp
+#
+#     res = _fun if pars is None else _fun(pars)
+#     return res
 
 def ll(xs, ys, ufun, pars = None):
 
@@ -591,16 +620,56 @@ def ll(xs, ys, ufun, pars = None):
 
     def _fun(pars):
         dms = ufun(pars)
-        rv  = _rv(dms)
-        ll  = npa([-2 * yi * rv.logpdf(xi) for xi, yi in zip (xs, ys)])
-        ll  = np.nan_to_num(ll)
+        ts  = 1. * np.arange(len(dms))
         ni  = np.sum(dms)
-        lp  = -2 * stats.poisson(ni).logpmf(n0) / nx
-        lp = 0.
+        ll  = -2 * ys * np.log(np.interp(xs, ts, dms)/ni)
+        ll  = np.nan_to_num(ll)
+        n0  = np.sum(ys)
+        #lp  = -2 * stats.poisson(ni).logpmf(n0)
+        #print(ni, n0, lp)
+        #lp  = 0.
+        return ll # + lp
+
+    res = _fun if pars is None else _fun(pars)
+    return res
+
+def ell(xs, ys, ufun, pars = None):
+
+    # data is a table (days, individuals)
+    #xs, ys = data
+    n0     = np.sum(ys)
+
+    def _fun(pars):
+        dms = ufun(pars)
+        ts  = 1. * np.arange(len(dms))
+        ni  = np.sum(dms)
+        ll  = -2 * ys * np.log(np.interp(xs, ts, dms)/ni)
+        ll  = np.nan_to_num(ll)
+        n0  = np.sum(ys)
+        lp  = -2 * stats.poisson(ni).logpmf(n0)
         return ll + lp
 
     res = _fun if pars is None else _fun(pars)
     return res
+
+# def res(xs, ys, ufun, pars = None, yerr = None, sqr = True):
+#
+#     # data is a table (days, individuals)
+#     #xs, ys = data
+#     yerr   = np.maximum(np.sqrt(ys), 1.) if yerr is None else yerr
+#     n      = np.sum(ys)
+#
+#     def _fun(pars):
+#         dms = ufun(pars)
+#         rv  = _rv(dms)
+#         ni  = np.sum(dms)
+#         ds  = npa([yi - ni * rv.pdf(xi) for xi, yi in zip(xs, ys)])
+#         ds  = npa([ds/ye                for ds, ye in zip(ds, yerr)])
+#         if (sqr): ds = ds * ds
+#         return ds
+#
+#     res = _fun if pars is None else _fun(pars)
+#     return res
 
 def res(xs, ys, ufun, pars = None, yerr = None, sqr = True):
 
@@ -610,10 +679,11 @@ def res(xs, ys, ufun, pars = None, yerr = None, sqr = True):
     n      = np.sum(ys)
 
     def _fun(pars):
-        dms = ufun(pars)
-        rv  = _rv(dms)
-        ni  = np.sum(dms)
-        ds  = npa([yi - ni * rv.pdf(xi) for xi, yi in zip(xs, ys)])
+        yp = fcases(pars, ufun)
+        #dms = ufun(pars)
+        #rv  = _rv(dms)
+        #ni  = np.sum(dms)
+        ds  = npa([yi - yp(xi) for xi, yi in zip(xs, ys)])
         ds  = npa([ds/ye                for ds, ye in zip(ds, yerr)])
         if (sqr): ds = ds * ds
         return ds
@@ -621,13 +691,15 @@ def res(xs, ys, ufun, pars = None, yerr = None, sqr = True):
     res = _fun if pars is None else _fun(pars)
     return res
 
-
 def chi2(xs, ys, pars, ufun, yerr = None):
-    return np.sum(res(xs, ys, pars, ufun = ufun, yerr = yerr))
+    return np.sum(res(xs, ys, ufun, pars = pars, yerr = yerr))
 
 
 def mll(xs, ys, pars, ufun):
-    return np.sum(ll(xs, ys, pars, ufun = ufun))
+    return np.sum(ll(xs, ys, ufun, pars))
+
+def emll(xs, ys, pars, ufun):
+    return np.sum(ell(xs, ys, ufun, pars))
 
 
 #------ fit-models
@@ -635,22 +707,22 @@ def mll(xs, ys, pars, ufun):
 rho = 'weibull'
 ndays = 200
 
-def _t0(pars, ufun):
-    # this deplaces the absolute time of the pandemic
-    # TODO : make an interpolation of the pandemic and move dt0 - float not itn!
-    dt0, tpars = int(pars[0]), pars[1:]
-    dms = ufun(tpars)
-    if (dt0 <= 0): return dms
-    dms[:-dt0] = dms[dt0:]
-    dms[-dt0:] = 0.
-    return dms
+# def _t0(pars, ufun):
+#     # this deplaces the absolute time of the pandemic
+#     # TODO : make an interpolation of the pandemic and move dt0 - float not itn!
+#     dt0, tpars = int(pars[0]), pars[1:]
+#     dms = ufun(tpars)
+#     if (dt0 <= 0): return dms
+#     dms[:-dt0] = dms[dt0:]
+#     dms[-dt0:] = 0.
+#     return dms
 
 def _t0(pars, ufun):
     # this deplaces the absolute time of the pandemic
     # TODO : make an interpolation of the pandemic and move dt0 - float not itn!
     dt0, tpars = pars[0], pars[1:]
     dms = ufun(tpars)
-    ts  = np.arange(len(dms))
+    ts  = 1. * np.arange(len(dms))
     dmsp = np.interp(ts + dt0, ts, dms)
     return dmsp
 
@@ -690,7 +762,7 @@ def dms_useirq_tr(pars, fname = 'gamma'):
     tm       = tr
     # TODO pass the rest of arguments
 
-    ns, ds = uSEIR_Rvar(n, r0, ti, tr, tm, phim, s1, r1, ndays = ndays, rho = rho)
+    ns, ds = uSEIRq(n, r0, ti, tr, tm, phim, s1, r1, ndays = ndays, rho = rho)
     return ds[3]
 
 
@@ -715,30 +787,61 @@ pars_names[_fname(dms_t0useirq)]    = ('t0', 'beta', 'gamma', 'ti', 'tr', 'tm', 
 pars_names[_fname(dms_t0useirq_tr)] = ('t0', 'beta', 'gamma', 'ti', 'tr', 'n', 'phim', 's1')
 
 
-def dms_fit(ts, cases, ufun, pars, pmask,
+def kpars_to_pars(kpars, ufun):
+    names = pars_names[_fname(ufun)]
+    xpars = [kpars[name]     for name in names]
+    return xpars
+
+def to_ts(dates):
+    date0 = np.min(dates)
+    ts = [(date - date0)/np.timedelta64(1, 'D') for date in dates]
+    return ts
+
+def dms_fit(dates, cases, ufun, pars, pmask,
             ucases = None, ffit = 'chi2'):
+    """ delta death (dms) fit to different models (ufun) with ffit  ('chi2', 'mll')
+        pars is either a tuple or a dictionary with the values of the initial parameters
+        pmark is either a tuple with True/False for the parameters that float in the fit
+        or a tuple of str with the names of the parameters that float in the fit.
+        ucases is the model to fit
+    """
+
+    xpars  = copy(pars)
+    xmask  = copy(pmask)
 
     isdict = (type(pars) == dict)
-
     if (isdict):
         dicres = True
         names = pars_names[_fname(ufun)]
-        pars  = [pars[name]     for name in names]
-        pmask = [name in pmasks for name in names]
+        xpars = [pars[name]     for name in names]
+        xmask = [name in pmask for name in names]
 
+    #print('xpars ', xpars)
+    #print('xmask ', xmask)
+    ts = copy(dates)
+    if (type(ts[0]) == np.datetime64):
+        date0 = np.min(dates)
+        ts = [(date - date0)/np.timedelta64(1, 'D') for date in dates]
+
+    #print('ts ', ts)
     _fun = ll if ffit == 'mll' else res
     fun  = _fun(ts, cases, ufun)
+    #print('fun ', _fname(fun))
 
-    xres = cfit.minimize(pars, fun, mask = pmask, method = 'Nelder-Mead')
+    xres = cfit.minimize(xpars, fun, mask = xmask, method = 'Nelder-Mead')
     xfun = lambda pars: np.sum(fun(pars))
+    xfval = xfun(xres)
+    #print('xres  ', xres)
+    #print('xfval ', xfval)
 
     if (isdict):
         names = pars_names[_fname(ufun)]
         xxres = {}
         for i, name in enumerate(names): xxres[name] = xres[i]
         xres = xxres
+    #print('xres ', xres)
 
-    return xres, xfun(xres), xfun
+    return xres, xfval, xfun
 
 
 #

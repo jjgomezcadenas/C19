@@ -1,12 +1,15 @@
 import numpy as np
 import pandas as pd
 
+from copy import copy
+
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import imshow
 import matplotlib.dates as mdates
 
 import c19.useir as us
 import c19.cfit  as cfit
+from   c19.HG_analysis import formatter
 
 npa    = np.array
 
@@ -192,21 +195,34 @@ def plt_betaq_time_evolution(xss, td, beta0, beta1, sn, s1):
 
 def plt_data_model(xs, ys, pars, ufun, yerr = None):
 
+    if (type(pars) == dict):
+        pars = us.kpars_to_pars(pars, ufun)
+    #print(pars)
+
+    isdate = False
+    ts     = copy(xs)
+    if (type(xs[0]) == np.datetime64):
+        isdate = True
+        ts = us.to_ts(xs)
+    #print(ts)
+
     f, (ax1, ax2) = plt.subplots(2, 1, gridspec_kw = {'height_ratios': [6, 1]})
     #plt.subplot(2, 1, 1)
     yerr   = np.sqrt(ys) if yerr is None else yerr
     ax1.errorbar(xs, ys, yerr = np.sqrt(ys), ls = '', label = 'data',
                  marker = 'o', ms = 4, c = 'black');
     fun    = us.fmodel(pars, ufun)
-    ax1.plot(xs, fun(xs), ls = '--', c = 'blue', label = 'model')
+    ax1.plot(xs, fun(ts), ls = '--', c = 'blue', label = 'model')
     ax1.grid(); ax1.legend();
+    if isdate: formatter(ax1);
 
     #plt.subplot(2, 1, 2)
-    fres  = us.res(xs, ys, ufun, sqr = False)
+    fres  = us.res(ts, ys, ufun, sqr = False)
     #ax1 = plt.twinx()
     ax2.bar(xs, fres(pars));
-    #ax2.set_ylim((-5., 5.));
+    ax2.set_ylim((-5., 5.));
     ax2.set_ylabel(r"$\sigma$");
+    if isdate: formatter(ax2);
 
     f.tight_layout()
     return
