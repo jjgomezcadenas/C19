@@ -844,6 +844,32 @@ def dms_fit(dates, cases, ufun, pars, pmask,
     return xres, xfval, xfun
 
 
+def dms_scan_fit(klist, dpars, dates, cases, ufun,
+                 kpars, pmask, ucases = None, ffit = 'chi2'):
+    kname, k0, k1, kbins = klist[0]
+
+    #print('scan in ', kname, k0, k1, kbins)
+
+    isend = (len(klist) == 1)
+
+    #print('is end? ', isend)
+    if (isend == False):
+        for ki in np.linspace(k0, k1, kbins):
+            kpars[kname] = ki
+            dms_scan_fit(klist[1:], dpars, dates, cases, ufun, kpars, pmask,
+                            ucases = ucases, ffit = ffit)
+        return dpars
+
+    for ki in np.linspace(k0, k1, kbins):
+        kp = copy(kpars)
+        kp[kname] = ki
+        bp, fval, ffun = dms_fit(dates, cases, ufun, kp, pmask,
+                                ucases = ucases, ffit = ffit)
+        bp['fval'] = fval
+        #print(bp)
+        dpars.append(bp)
+    return dpars
+
 #
 # def _useirext(pars, fname = 'gamma'):
 #
