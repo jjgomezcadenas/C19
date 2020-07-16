@@ -463,7 +463,8 @@ def useir_kfs(ds, times, q0 = 0., uds = None, x0 = None, ux0 = None,
     fs = [np.identity(3)      for i in range(nsize)]
 
     #if (len(q0) != nsize):
-    q0 = [q0 for i in range(nsize)]
+    if (type(q0) == float):
+        q0 = [q0 for i in range(nsize)]
     qs = [qi * np.identity(3) for qi in q0]
 
     ks = [kf.KFnode(mi, umi, hi, fi, qi) for mi, umi, hi, fi, qi in zip(ms, ums, hs, fs, qs)]
@@ -484,32 +485,32 @@ def useir_kfs(ds, times, q0 = 0., uds = None, x0 = None, ux0 = None,
 #-------
 
 #
-# def useir_kfs_comomo(dates, cases, ucases, times,
-#                     dates_blind = None, q0 = 1.):
-#
-#     nsize          = len(dates)
-#     #t0             = int(tm)
-#     #dios           = np.zeros(nsize)
-#     #dios[:-t0]     = cases[t0:]
-#     ti, td, tm     = times
-#     ds             = (cases, cases, cases)
-#     uds            = (ucases, ucases, ucases)
-#
-#     q0      = q0 * np.ones(nsize)
-#
-#     dates_blind = ('2030-01-01', '2030-12-31') if dates_blind is None else dates_blind
-#     date0, date1 = dates_blind
-#     sel    = (dates >= np.datetime64(date0)) & (dates <= np.datetime64(date1))
-#     q0[sel] = 1.
-#
-#     kfres = useir_kfs(ds, times, uds = uds, q0 = q0, scale = True)
-#
-#     def _rs(xs, uxs):
-#         rs  = td * npa([xi[0]             for xi in xs])
-#         urs = td * npa([np.sqrt(xi[0, 0]) for xi in uxs])
-#         return rs, urs
-#
-#     return _rs(*kfres[0]), _rs(*kfres[1])
+def useir_kfs_comomo(dates, cases, ucases, times,
+                    dates_blind = None, q0 = 1.):
+
+    nsize          = len(dates)
+    #t0             = int(tm)
+    #dios           = np.zeros(nsize)
+    #dios[:-t0]     = cases[t0:]
+    ti, td, tm     = times
+    ds             = (cases, cases, cases)
+    uds            = (ucases, ucases, ucases)
+
+    q0      = q0 * np.ones(nsize)
+
+    dates_blind = ('2030-01-01', '2030-12-31') if dates_blind is None else dates_blind
+    date0, date1 = dates_blind
+    sel    = (dates >= np.datetime64(date0)) & (dates <= np.datetime64(date1))
+    q0[sel] = 1.
+
+    kfres = useir_kfs(ds, times, uds = uds, q0 = q0, scale = True)
+
+    def _rs(xs, uxs):
+        rs  = td * npa([xi[0]             for xi in xs])
+        urs = td * npa([np.sqrt(xi[0, 0]) for xi in uxs])
+        return rs, urs
+
+    return _rs(*kfres[0]), _rs(*kfres[1])
 #
 # #-------
 #

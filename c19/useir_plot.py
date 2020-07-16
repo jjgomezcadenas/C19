@@ -13,6 +13,9 @@ from   c19.HG_analysis import formatter
 
 npa    = np.array
 
+def has_figure():
+    return (len(plt.get_fignums()) > 0)
+
 def plt_uSEIR(ts, seir, dseir, title = '', yscale = 'log', norma = False):
     """ Plot uSEIR categories and increment vs days
     """
